@@ -10,7 +10,17 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Vite a besoin des VITE_* au build → Railway les expose comme variables d'env
+
+# Vite inline les VITE_* à la compilation : il faut les recevoir via --build-arg
+# Sur Railway → "Build Args" du service. Les valeurs viennent des variables
+# d'environnement définies dans Railway (mêmes noms).
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_SUPABASE_PROJECT_ID
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+ENV VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID
+
 ENV NODE_ENV=production
 RUN npm run build
 
