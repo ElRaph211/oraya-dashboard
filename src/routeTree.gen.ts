@@ -20,6 +20,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRelancesRouteImport } from './routes/_authenticated/relances'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPaymentPlansRouteImport } from './routes/_authenticated/payment-plans'
 import { Route as AuthenticatedInvoicesRouteImport } from './routes/_authenticated/invoices'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedDebtorsRouteImport } from './routes/_authenticated/debtors'
@@ -92,6 +93,12 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPaymentPlansRoute =
+  AuthenticatedPaymentPlansRouteImport.update({
+    id: '/payment-plans',
+    path: '/payment-plans',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInvoicesRoute = AuthenticatedInvoicesRouteImport.update({
   id: '/invoices',
   path: '/invoices',
@@ -206,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/debtors': typeof AuthenticatedDebtorsRouteWithChildren
   '/inbox': typeof AuthenticatedInboxRoute
   '/invoices': typeof AuthenticatedInvoicesRouteWithChildren
+  '/payment-plans': typeof AuthenticatedPaymentPlansRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/relances': typeof AuthenticatedRelancesRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -233,6 +241,7 @@ export interface FileRoutesByTo {
   '/system-config': typeof AdminSystemConfigRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/payment-plans': typeof AuthenticatedPaymentPlansRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/relances': typeof AuthenticatedRelancesRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -265,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated/debtors': typeof AuthenticatedDebtorsRouteWithChildren
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/invoices': typeof AuthenticatedInvoicesRouteWithChildren
+  '/_authenticated/payment-plans': typeof AuthenticatedPaymentPlansRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/relances': typeof AuthenticatedRelancesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/debtors'
     | '/inbox'
     | '/invoices'
+    | '/payment-plans'
     | '/profile'
     | '/relances'
     | '/settings'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/system-config'
     | '/dashboard'
     | '/inbox'
+    | '/payment-plans'
     | '/profile'
     | '/relances'
     | '/settings'
@@ -354,6 +366,7 @@ export interface FileRouteTypes {
     | '/_authenticated/debtors'
     | '/_authenticated/inbox'
     | '/_authenticated/invoices'
+    | '/_authenticated/payment-plans'
     | '/_authenticated/profile'
     | '/_authenticated/relances'
     | '/_authenticated/settings'
@@ -454,6 +467,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/payment-plans': {
+      id: '/_authenticated/payment-plans'
+      path: '/payment-plans'
+      fullPath: '/payment-plans'
+      preLoaderRoute: typeof AuthenticatedPaymentPlansRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/invoices': {
@@ -646,6 +666,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDebtorsRoute: typeof AuthenticatedDebtorsRouteWithChildren
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedInvoicesRoute: typeof AuthenticatedInvoicesRouteWithChildren
+  AuthenticatedPaymentPlansRoute: typeof AuthenticatedPaymentPlansRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRelancesRoute: typeof AuthenticatedRelancesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -656,6 +677,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDebtorsRoute: AuthenticatedDebtorsRouteWithChildren,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedInvoicesRoute: AuthenticatedInvoicesRouteWithChildren,
+  AuthenticatedPaymentPlansRoute: AuthenticatedPaymentPlansRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRelancesRoute: AuthenticatedRelancesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,

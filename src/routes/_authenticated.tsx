@@ -15,6 +15,7 @@ import {
   X,
   LogOut,
   Shield,
+  Calendar,
 } from "lucide-react";
 import { useInbox } from "@/lib/inbox-store";
 import { CommandPalette } from "@/components/command-palette";
@@ -130,6 +131,9 @@ function SidebarContent({
         </NavItem>
         <NavItem to="/relances" icon={<Send className="h-4 w-4" />} onNavigate={onNavigate}>
           Relances
+        </NavItem>
+        <NavItem to="/payment-plans" icon={<Calendar className="h-4 w-4" />} onNavigate={onNavigate}>
+          Plans de paiement
         </NavItem>
         <InboxNavItem onNavigate={onNavigate} />
         <NavItem to="/settings" icon={<Sliders className="h-4 w-4" />} onNavigate={onNavigate}>

@@ -100,7 +100,8 @@ function StatusBadge({ status, strategic }: { status: string | null; strategic: 
     pending_approval: { bg: "#FEF3C7", fg: "#92400E", label: "À valider" },
     approved: { bg: "#DCFCE7", fg: "#166534", label: "Approuvée" },
   };
-  const s = (status && map[status]) ?? { bg: "#F1F5F9", fg: "#475569", label: status ?? "—" };
+  const fallback = { bg: "#F1F5F9", fg: "#475569", label: status ?? "—" };
+  const s = status ? map[status] ?? fallback : fallback;
   return (
     <div className="flex items-center gap-1.5">
       <span

@@ -102,7 +102,8 @@ function ClassificationCard({ item }: { item: PendingClassification }) {
             {item.email_subject ?? "(sans objet)"}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            De {item.email_from} · {new Date(item.received_at).toLocaleString("fr-FR")}
+            De {item.email_from ?? "?"}
+            {item.received_at && ` · ${new Date(item.received_at).toLocaleString("fr-FR")}`}
           </div>
         </div>
         {item.gpt_confidence !== null && (
