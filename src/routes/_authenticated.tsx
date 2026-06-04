@@ -29,6 +29,28 @@ export const Route = createFileRoute("/_authenticated")({
     if (!session) {
       throw redirect({ to: "/login" });
     }
+
+    // Si l'utilisateur a un client lié et que l'onboarding n'est pas terminé,
+    // rediriger vers /onboarding. Admins (sans client lié) passent direct.
+    try {
+      const userId = session.user?.id;
+      if (userId) {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("onboarding_status")
+          .eq("user_id", userId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (clientRow && clientRow.onboarding_status !== "active") {
+          throw redirect({ to: "/onboarding" });
+        }
+      }
+    } catch (e) {
+      // Si redirect → propager
+      if (e && typeof e === "object" && "to" in e) throw e;
+      // Sinon (erreur réseau) → laisser passer pour ne pas bloquer
+    }
+
     return { session };
   },
   component: AuthenticatedLayout,

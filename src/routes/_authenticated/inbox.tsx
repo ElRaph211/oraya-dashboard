@@ -122,7 +122,9 @@ function InboxPage() {
     const settings = getSettings();
     const hasDraft = result.draft_body.trim().length > 0;
     const includeRib =
-      result.category === "demande_rib" || result.category === "promesse_paiement";
+      result.category === "demande_document" ||
+      result.category === "promesse_datee" ||
+      result.category === "promesse_vague";
     const fullDraftBody = hasDraft
       ? composeOutgoingBody(result.draft_body, settings, { includeRib })
       : "";
@@ -133,7 +135,7 @@ function InboxPage() {
       confidence: result.confidence,
       ai_summary: result.summary,
       ai_action_taken: autoOk ? result.suggested_action : undefined,
-      payment_promised_date: result.payment_promised_date,
+      extracted_date: result.extracted_date,
       ai_draft_subject: result.draft_subject,
       ai_draft_body: fullDraftBody,
       sent_subject: autoOk && hasDraft ? result.draft_subject : undefined,
@@ -231,7 +233,7 @@ function InboxPage() {
       ai_summary: undefined,
       ai_draft_subject: undefined,
       ai_draft_body: undefined,
-      payment_promised_date: null,
+      extracted_date: null,
       status: "pending",
       sent_subject: undefined,
       sent_body: undefined,
@@ -564,9 +566,9 @@ function MessageDetail({
             <span className={`text-xs px-2 py-1 rounded-full border ${meta.color}`}>
               {meta.emoji} {meta.label}
             </span>
-            {message.payment_promised_date && (
+            {message.extracted_date && (
               <span className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                📆 Paiement promis : {new Date(message.payment_promised_date).toLocaleDateString("fr-FR")}
+                📆 Paiement promis : {new Date(message.extracted_date).toLocaleDateString("fr-FR")}
               </span>
             )}
           </div>
@@ -821,7 +823,8 @@ function ManualReplyWorkflow({
   onSend: (subject: string, body: string) => void;
   onArchive: () => void;
 }) {
-  const isHorsSujet = message.category === "hors_sujet";
+  const isHorsSujet =
+    message.category === "silence" || message.category === "absence_automatique";
   const [step, setStep] = useState<"choose" | "compose" | "preview">("choose");
   const defaultSubject = message.subject.startsWith("Re:")
     ? message.subject

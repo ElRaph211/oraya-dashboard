@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DpaRouteImport } from './routes/dpa'
 import { Route as CguRouteImport } from './routes/cgu'
@@ -43,6 +44,11 @@ import { Route as AdminSwitchClientIdRouteImport } from './routes/_admin/switch.
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/cgu': typeof CguRoute
   '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/signup': typeof SignupRoute
   '/classifications': typeof AdminClassificationsRoute
   '/clients': typeof AdminClientsRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByTo {
   '/cgu': typeof CguRoute
   '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/signup': typeof SignupRoute
   '/classifications': typeof AdminClassificationsRoute
   '/clients': typeof AdminClientsRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/cgu': typeof CguRoute
   '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/signup': typeof SignupRoute
   '/_admin/classifications': typeof AdminClassificationsRoute
   '/_admin/clients': typeof AdminClientsRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/cgu'
     | '/dpa'
     | '/login'
+    | '/onboarding'
     | '/signup'
     | '/classifications'
     | '/clients'
@@ -324,6 +334,7 @@ export interface FileRouteTypes {
     | '/cgu'
     | '/dpa'
     | '/login'
+    | '/onboarding'
     | '/signup'
     | '/classifications'
     | '/clients'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/cgu'
     | '/dpa'
     | '/login'
+    | '/onboarding'
     | '/signup'
     | '/_admin/classifications'
     | '/_admin/clients'
@@ -387,6 +399,7 @@ export interface RootRouteChildren {
   CguRoute: typeof CguRoute
   DpaRoute: typeof DpaRoute
   LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
   SignupRoute: typeof SignupRoute
 }
 
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -695,6 +715,7 @@ const rootRouteChildren: RootRouteChildren = {
   CguRoute: CguRoute,
   DpaRoute: DpaRoute,
   LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
   SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
