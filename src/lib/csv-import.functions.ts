@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { _refreshDebtorStatsCore } from "@/lib/scoring/refresh-debtor-stats";
 
 const inputSchema = z.object({
   // On envoie les 15 premières lignes brutes (avant detection d'en-tête)
@@ -150,6 +151,7 @@ const persistInputSchema = z.object({
 export type PersistResult = {
   ok: boolean;
   inserted: number;
+  debtors_scored?: number;
   error?: string;
 };
 
@@ -197,18 +199,21 @@ export const persistCsvImport = createServerFn({ method: "POST" })
     const clientId = clientRow.id;
     const today = new Date().toISOString().slice(0, 10);
     let inserted = 0;
+    // On track les débiteurs touchés pour recalculer leur score après l'import
+    const touchedDebtorIds = new Set<string>();
 
     for (const row of data.rows) {
       // Find existing debtor by partial name match
       const { data: existingDebtors } = await supabaseAdmin
         .from("debtors")
-        .select("id")
+        .select("id, first_invoice_date")
         .eq("client_id", clientId)
         .ilike("company_name", `%${row.debtor_company.trim()}%`)
         .is("deleted_at", null)
         .limit(1);
 
       let debtorId = existingDebtors?.[0]?.id;
+      let firstInvoiceDate = existingDebtors?.[0]?.first_invoice_date ?? null;
 
       if (!debtorId) {
         const { data: newDebtor, error: debtorErr } = await supabaseAdmin
@@ -222,11 +227,19 @@ export const persistCsvImport = createServerFn({ method: "POST" })
             is_in_oraya_scope: true,
             contact_validated: false,
             status: "active",
+            first_invoice_date: row.issued, // utilisé par le composant D du score
           })
           .select("id")
           .single();
         if (debtorErr) throw new Error(debtorErr.message);
         debtorId = newDebtor.id;
+        firstInvoiceDate = row.issued;
+      } else if (!firstInvoiceDate || row.issued < firstInvoiceDate) {
+        // Recale la première facture si on découvre une plus ancienne
+        await supabaseAdmin
+          .from("debtors")
+          .update({ first_invoice_date: row.issued })
+          .eq("id", debtorId);
       }
 
       const paid = row.paid ?? 0;
@@ -254,6 +267,20 @@ export const persistCsvImport = createServerFn({ method: "POST" })
 
       if (invErr) throw new Error(invErr.message);
       inserted++;
+      touchedDebtorIds.add(debtorId!);
+    }
+
+    // Recalcul du score Oraya pour chaque débiteur touché
+    let scored = 0;
+    let scoreErrors = 0;
+    for (const id of touchedDebtorIds) {
+      try {
+        await _refreshDebtorStatsCore(id);
+        scored++;
+      } catch (e) {
+        console.error(`[csv-import] refresh stats failed for ${id}`, e);
+        scoreErrors++;
+      }
     }
 
     const batchRef = `CSV-${today}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
@@ -262,8 +289,9 @@ export const persistCsvImport = createServerFn({ method: "POST" })
       batch_reference: batchRef,
       source: "csv",
       invoices_inserted: inserted,
-      status: "completed",
+      status: scoreErrors > 0 ? "completed_with_errors" : "completed",
+      error_log: scoreErrors > 0 ? `${scoreErrors} score refresh errors` : null,
     });
 
-    return { ok: true, inserted };
+    return { ok: true, inserted, debtors_scored: scored };
   });
