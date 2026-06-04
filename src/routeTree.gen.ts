@@ -24,14 +24,20 @@ import { Route as AuthenticatedInvoicesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedDebtorsRouteImport } from './routes/_authenticated/debtors'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AdminSystemConfigRouteImport } from './routes/_admin/system-config'
 import { Route as AdminLogsRouteImport } from './routes/_admin/logs'
+import { Route as AdminGlobalRelancesRouteImport } from './routes/_admin/global-relances'
+import { Route as AdminGlobalDebtorsRouteImport } from './routes/_admin/global-debtors'
+import { Route as AdminCommissionsRouteImport } from './routes/_admin/commissions'
 import { Route as AdminClientsRouteImport } from './routes/_admin/clients'
+import { Route as AdminClassificationsRouteImport } from './routes/_admin/classifications'
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices.index'
 import { Route as AuthenticatedDebtorsIndexRouteImport } from './routes/_authenticated/debtors.index'
 import { Route as AuthenticatedInvoicesImportRouteImport } from './routes/_authenticated/invoices.import'
 import { Route as AuthenticatedInvoicesInvoiceIdRouteImport } from './routes/_authenticated/invoices.$invoiceId'
 import { Route as AuthenticatedDebtorsNewRouteImport } from './routes/_authenticated/debtors.new'
 import { Route as AuthenticatedDebtorsDebtorIdRouteImport } from './routes/_authenticated/debtors.$debtorId'
+import { Route as AdminSwitchClientIdRouteImport } from './routes/_admin/switch.$clientId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -106,14 +112,39 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AdminSystemConfigRoute = AdminSystemConfigRouteImport.update({
+  id: '/system-config',
+  path: '/system-config',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminLogsRoute = AdminLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminGlobalRelancesRoute = AdminGlobalRelancesRouteImport.update({
+  id: '/global-relances',
+  path: '/global-relances',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGlobalDebtorsRoute = AdminGlobalDebtorsRouteImport.update({
+  id: '/global-debtors',
+  path: '/global-debtors',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCommissionsRoute = AdminCommissionsRouteImport.update({
+  id: '/commissions',
+  path: '/commissions',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminClientsRoute = AdminClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminClassificationsRoute = AdminClassificationsRouteImport.update({
+  id: '/classifications',
+  path: '/classifications',
   getParentRoute: () => AdminRoute,
 } as any)
 const AuthenticatedInvoicesIndexRoute =
@@ -151,6 +182,11 @@ const AuthenticatedDebtorsDebtorIdRoute =
     path: '/$debtorId',
     getParentRoute: () => AuthenticatedDebtorsRoute,
   } as any)
+const AdminSwitchClientIdRoute = AdminSwitchClientIdRouteImport.update({
+  id: '/switch/$clientId',
+  path: '/switch/$clientId',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,8 +195,13 @@ export interface FileRoutesByFullPath {
   '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/classifications': typeof AdminClassificationsRoute
   '/clients': typeof AdminClientsRoute
+  '/commissions': typeof AdminCommissionsRoute
+  '/global-debtors': typeof AdminGlobalDebtorsRoute
+  '/global-relances': typeof AdminGlobalRelancesRoute
   '/logs': typeof AdminLogsRoute
+  '/system-config': typeof AdminSystemConfigRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/debtors': typeof AuthenticatedDebtorsRouteWithChildren
   '/inbox': typeof AuthenticatedInboxRoute
@@ -168,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/relances': typeof AuthenticatedRelancesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/switch/$clientId': typeof AdminSwitchClientIdRoute
   '/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
   '/debtors/new': typeof AuthenticatedDebtorsNewRoute
   '/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
@@ -182,13 +224,19 @@ export interface FileRoutesByTo {
   '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/classifications': typeof AdminClassificationsRoute
   '/clients': typeof AdminClientsRoute
+  '/commissions': typeof AdminCommissionsRoute
+  '/global-debtors': typeof AdminGlobalDebtorsRoute
+  '/global-relances': typeof AdminGlobalRelancesRoute
   '/logs': typeof AdminLogsRoute
+  '/system-config': typeof AdminSystemConfigRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/relances': typeof AuthenticatedRelancesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/switch/$clientId': typeof AdminSwitchClientIdRoute
   '/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
   '/debtors/new': typeof AuthenticatedDebtorsNewRoute
   '/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
@@ -206,8 +254,13 @@ export interface FileRoutesById {
   '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_admin/classifications': typeof AdminClassificationsRoute
   '/_admin/clients': typeof AdminClientsRoute
+  '/_admin/commissions': typeof AdminCommissionsRoute
+  '/_admin/global-debtors': typeof AdminGlobalDebtorsRoute
+  '/_admin/global-relances': typeof AdminGlobalRelancesRoute
   '/_admin/logs': typeof AdminLogsRoute
+  '/_admin/system-config': typeof AdminSystemConfigRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/debtors': typeof AuthenticatedDebtorsRouteWithChildren
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
@@ -215,6 +268,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/relances': typeof AuthenticatedRelancesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_admin/switch/$clientId': typeof AdminSwitchClientIdRoute
   '/_authenticated/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
   '/_authenticated/debtors/new': typeof AuthenticatedDebtorsNewRoute
   '/_authenticated/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
@@ -231,8 +285,13 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/login'
     | '/signup'
+    | '/classifications'
     | '/clients'
+    | '/commissions'
+    | '/global-debtors'
+    | '/global-relances'
     | '/logs'
+    | '/system-config'
     | '/dashboard'
     | '/debtors'
     | '/inbox'
@@ -240,6 +299,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/relances'
     | '/settings'
+    | '/switch/$clientId'
     | '/debtors/$debtorId'
     | '/debtors/new'
     | '/invoices/$invoiceId'
@@ -254,13 +314,19 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/login'
     | '/signup'
+    | '/classifications'
     | '/clients'
+    | '/commissions'
+    | '/global-debtors'
+    | '/global-relances'
     | '/logs'
+    | '/system-config'
     | '/dashboard'
     | '/inbox'
     | '/profile'
     | '/relances'
     | '/settings'
+    | '/switch/$clientId'
     | '/debtors/$debtorId'
     | '/debtors/new'
     | '/invoices/$invoiceId'
@@ -277,8 +343,13 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/login'
     | '/signup'
+    | '/_admin/classifications'
     | '/_admin/clients'
+    | '/_admin/commissions'
+    | '/_admin/global-debtors'
+    | '/_admin/global-relances'
     | '/_admin/logs'
+    | '/_admin/system-config'
     | '/_authenticated/dashboard'
     | '/_authenticated/debtors'
     | '/_authenticated/inbox'
@@ -286,6 +357,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/relances'
     | '/_authenticated/settings'
+    | '/_admin/switch/$clientId'
     | '/_authenticated/debtors/$debtorId'
     | '/_authenticated/debtors/new'
     | '/_authenticated/invoices/$invoiceId'
@@ -412,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_admin/system-config': {
+      id: '/_admin/system-config'
+      path: '/system-config'
+      fullPath: '/system-config'
+      preLoaderRoute: typeof AdminSystemConfigRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/logs': {
       id: '/_admin/logs'
       path: '/logs'
@@ -419,11 +498,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLogsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/global-relances': {
+      id: '/_admin/global-relances'
+      path: '/global-relances'
+      fullPath: '/global-relances'
+      preLoaderRoute: typeof AdminGlobalRelancesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/global-debtors': {
+      id: '/_admin/global-debtors'
+      path: '/global-debtors'
+      fullPath: '/global-debtors'
+      preLoaderRoute: typeof AdminGlobalDebtorsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/commissions': {
+      id: '/_admin/commissions'
+      path: '/commissions'
+      fullPath: '/commissions'
+      preLoaderRoute: typeof AdminCommissionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/clients': {
       id: '/_admin/clients'
       path: '/clients'
       fullPath: '/clients'
       preLoaderRoute: typeof AdminClientsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/classifications': {
+      id: '/_admin/classifications'
+      path: '/classifications'
+      fullPath: '/classifications'
+      preLoaderRoute: typeof AdminClassificationsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_authenticated/invoices/': {
@@ -468,17 +575,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDebtorsDebtorIdRouteImport
       parentRoute: typeof AuthenticatedDebtorsRoute
     }
+    '/_admin/switch/$clientId': {
+      id: '/_admin/switch/$clientId'
+      path: '/switch/$clientId'
+      fullPath: '/switch/$clientId'
+      preLoaderRoute: typeof AdminSwitchClientIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminClassificationsRoute: typeof AdminClassificationsRoute
   AdminClientsRoute: typeof AdminClientsRoute
+  AdminCommissionsRoute: typeof AdminCommissionsRoute
+  AdminGlobalDebtorsRoute: typeof AdminGlobalDebtorsRoute
+  AdminGlobalRelancesRoute: typeof AdminGlobalRelancesRoute
   AdminLogsRoute: typeof AdminLogsRoute
+  AdminSystemConfigRoute: typeof AdminSystemConfigRoute
+  AdminSwitchClientIdRoute: typeof AdminSwitchClientIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminClassificationsRoute: AdminClassificationsRoute,
   AdminClientsRoute: AdminClientsRoute,
+  AdminCommissionsRoute: AdminCommissionsRoute,
+  AdminGlobalDebtorsRoute: AdminGlobalDebtorsRoute,
+  AdminGlobalRelancesRoute: AdminGlobalRelancesRoute,
   AdminLogsRoute: AdminLogsRoute,
+  AdminSystemConfigRoute: AdminSystemConfigRoute,
+  AdminSwitchClientIdRoute: AdminSwitchClientIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

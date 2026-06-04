@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { Users, ScrollText, LogOut, Shield } from "lucide-react";
+import { Users, ScrollText, LogOut, Shield, Inbox, Send, Wallet, Sliders, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { checkIsAdmin } from "@/lib/admin.functions";
 
@@ -52,20 +52,27 @@ function AdminLayout() {
         </div>
 
         <nav className="flex-1 min-h-0 overflow-y-auto px-3 space-y-1 mt-4">
-          <Link
-            to="/clients"
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-white/70 hover:text-white hover:bg-white/10 transition"
-            activeProps={{ className: "bg-white/10 text-white" }}
-          >
-            <Users className="h-4 w-4" /> Clients
-          </Link>
-          <Link
-            to="/logs"
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-white/70 hover:text-white hover:bg-white/10 transition"
-            activeProps={{ className: "bg-white/10 text-white" }}
-          >
-            <ScrollText className="h-4 w-4" /> Logs
-          </Link>
+          <AdminLink to="/clients" icon={<Users className="h-4 w-4" />}>
+            Clients
+          </AdminLink>
+          <AdminLink to="/global-debtors" icon={<FileText className="h-4 w-4" />}>
+            Débiteurs
+          </AdminLink>
+          <AdminLink to="/global-relances" icon={<Send className="h-4 w-4" />}>
+            Relances
+          </AdminLink>
+          <AdminLink to="/classifications" icon={<Inbox className="h-4 w-4" />}>
+            Classifications
+          </AdminLink>
+          <AdminLink to="/commissions" icon={<Wallet className="h-4 w-4" />}>
+            Commissions
+          </AdminLink>
+          <AdminLink to="/system-config" icon={<Sliders className="h-4 w-4" />}>
+            Paramètres
+          </AdminLink>
+          <AdminLink to="/logs" icon={<ScrollText className="h-4 w-4" />}>
+            Journal
+          </AdminLink>
         </nav>
 
         <div className="px-3 py-4 border-t border-white/10 shrink-0 space-y-2">
@@ -91,5 +98,26 @@ function AdminLayout() {
         <Outlet />
       </div>
     </div>
+  );
+}
+
+function AdminLink({
+  to,
+  icon,
+  children,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-white/70 hover:text-white hover:bg-white/10 transition"
+      activeProps={{ className: "bg-white/10 text-white" }}
+    >
+      {icon}
+      {children}
+    </Link>
   );
 }
