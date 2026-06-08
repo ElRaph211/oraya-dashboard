@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   CheckCircle2,
-  Clock,
   FileText,
   ArrowRight,
   Upload,
@@ -138,12 +137,6 @@ function DashboardPage() {
           hint={kpis.alertes_procedures_collectives ? "Action requise" : "RAS"}
           icon={<ShieldAlert className="h-5 w-5" />}
           tone={kpis.alertes_procedures_collectives ? "danger" : undefined}
-        />
-        <Kpi
-          label="DSO moyen liste A"
-          value={kpis.dso_moyen_liste_a !== null ? `${kpis.dso_moyen_liste_a} j` : "—"}
-          hint="Retard moyen"
-          icon={<Clock className="h-5 w-5" />}
         />
         <KpiLink
           to="/relances"

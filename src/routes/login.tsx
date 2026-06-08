@@ -46,7 +46,7 @@ function LoginPage() {
           </div>
           <div className="leading-tight">
             <div className="font-semibold text-[var(--navy)]">Oraya</div>
-            <div className="text-xs text-muted-foreground italic">Precision</div>
+            <div className="text-xs text-muted-foreground italic">System</div>
           </div>
         </div>
         <h1 className="text-xl font-semibold text-[var(--navy)] mb-1">Connexion</h1>

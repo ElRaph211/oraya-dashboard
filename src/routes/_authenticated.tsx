@@ -137,7 +137,7 @@ function SidebarContent({
         </div>
         <div className="leading-tight">
           <div className="font-semibold">Oraya</div>
-          <div className="text-xs text-white/60 italic">Precision</div>
+          <div className="text-xs text-white/60 italic">System</div>
         </div>
       </div>
 
