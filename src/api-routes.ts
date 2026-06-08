@@ -48,6 +48,9 @@ export async function handleApiRoute(request: Request): Promise<Response | null>
   if (path === "/api/cron/generate-recap" && request.method === "GET") {
     return handleGenerateRecap(request);
   }
+  if (path === "/api/cron/enqueue-relances" && request.method === "GET") {
+    return handleEnqueueRelances(request);
+  }
 
   // -- Health check ---------------------------------------------------------
   if (path === "/api/health" && request.method === "GET") {
@@ -179,6 +182,21 @@ async function handleResendEvents(request: Request): Promise<Response> {
   }
 
   return jsonResponse({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
+async function handleEnqueueRelances(request: Request): Promise<Response> {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const auth = request.headers.get("authorization");
+    if (auth !== `Bearer ${cronSecret}`) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+  }
+
+  const { enqueueDueRelances } = await import("@/lib/relances/enqueue-relances");
+  const result = await enqueueDueRelances();
+  return jsonResponse(result);
 }
 
 // ---------------------------------------------------------------------------

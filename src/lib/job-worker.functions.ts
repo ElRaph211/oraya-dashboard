@@ -6,6 +6,7 @@ import { supabaseAdmin as supabaseAdminTyped } from "@/integrations/supabase/cli
 const supabaseAdmin = supabaseAdminTyped as any;
 import { sendResponseNotificationEmail, shouldNotifyClient } from "@/lib/resend/emails/send-response-notif";
 import { sendAlertRaphael } from "@/lib/resend/emails/send-alert-raphael";
+import { sendRelanceEmail } from "@/lib/resend/emails/send-relance";
 
 /** Classifie une réponse de débiteur via Anthropic */
 async function classifyResponse(emailBody: string, emailSubject: string): Promise<{
@@ -131,6 +132,8 @@ export const processJobQueue = createServerFn({ method: "POST" })
 
         if (job.job_type === "classify_response") {
           await handleClassifyResponse(job);
+        } else if (job.job_type === "send_relance") {
+          await handleSendRelance(job);
         }
 
         await supabaseAdmin
@@ -152,6 +155,91 @@ export const processJobQueue = createServerFn({ method: "POST" })
 
     return { ok: true, processed, errors };
   });
+
+/* -------------------------------------------------------------------------- */
+/*  handleSendRelance — envoie un email de relance via Resend                 */
+/* -------------------------------------------------------------------------- */
+
+async function handleSendRelance(job: {
+  id: string;
+  debtor_id: string;
+  client_id: string;
+  payload: Record<string, unknown>;
+}) {
+  const payload = job.payload ?? {};
+  const relanceId = payload.relance_id as string | undefined;
+  if (!relanceId) throw new Error("relance_id manquant dans le payload");
+
+  // Charge la relance
+  const { data: relance, error: relErr } = await supabaseAdmin
+    .from("relances_queue")
+    .select("*")
+    .eq("id", relanceId)
+    .maybeSingle();
+  if (relErr || !relance) throw new Error("Relance introuvable");
+
+  // Skip si déjà envoyée ou annulée
+  if (relance.status === "sent" || relance.status === "auto_sent" || relance.status === "cancelled") {
+    return;
+  }
+
+  // Si la relance est planifiée dans le futur (generated_at > now), on remet
+  // le job en pending pour traitement ultérieur (sans l'incrémenter)
+  if (relance.generated_at && new Date(relance.generated_at) > new Date()) {
+    await supabaseAdmin
+      .from("job_queue")
+      .update({ status: "pending", error_message: null })
+      .eq("id", job.id);
+    return;
+  }
+
+  if (!relance.email_to) throw new Error("Destinataire manquant");
+  if (!relance.email_subject || !relance.email_body) throw new Error("Contenu manquant");
+  if (!relance.email_from) throw new Error("Expéditeur (alias) manquant");
+
+  // Charge le client pour BCC + nom affiché
+  const { data: client } = await supabaseAdmin
+    .from("clients")
+    .select("contact_email, bcc_enabled, email_alias_name, company_name")
+    .eq("id", relance.client_id)
+    .maybeSingle();
+
+  const fromName =
+    (client?.email_alias_name as string | undefined) ?? (client?.company_name as string | undefined) ?? "Oraya";
+
+  try {
+    await sendRelanceEmail({
+      debtorEmail: relance.email_to,
+      fromAlias: relance.email_from,
+      fromAliasName: fromName,
+      subject: relance.email_subject,
+      body: relance.email_body,
+      clientBccEmail: client?.bcc_enabled ? client.contact_email : undefined,
+      templateCode: relance.template_code ?? "AUTO",
+      relanceId: relance.id,
+    });
+
+    await supabaseAdmin
+      .from("relances_queue")
+      .update({
+        status: "auto_sent",
+        sent_at: new Date().toISOString(),
+      })
+      .eq("id", relance.id);
+
+    // Met à jour le compteur du débiteur + last_relance_at
+    await supabaseAdmin
+      .from("debtors")
+      .update({
+        last_relance_at: new Date().toISOString(),
+        relance_count: (relance.sequence_step ?? 0) + 1,
+      })
+      .eq("id", job.debtor_id);
+  } catch (e) {
+    await supabaseAdmin.from("relances_queue").update({ status: "bounced" }).eq("id", relance.id);
+    throw e;
+  }
+}
 
 async function handleClassifyResponse(job: {
   id: string;

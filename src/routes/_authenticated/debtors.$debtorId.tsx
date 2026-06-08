@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, Building2, Mail, Phone, MapPin, AlertTriangle, MessageCircle, Send, Inbox as InboxIcon } from "lucide-react";
+import { ArrowLeft, Building2, Mail, Phone, MapPin, AlertTriangle, MessageCircle, Send, Inbox as InboxIcon, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRelances } from "@/lib/relances-store";
@@ -138,7 +138,16 @@ function DebtorDetail() {
               <span>Contact : <strong className="text-[var(--navy)]">{d.contact}</strong></span>
             </div>
           </div>
-          <RiskBadge risk={d.risk} />
+          <div className="flex flex-col items-end gap-2">
+            <RiskBadge risk={d.risk} />
+            <Link
+              to="/relances/plan/$debtorId"
+              params={{ debtorId: d.id }}
+              className="inline-flex items-center gap-1.5 text-xs bg-[var(--highlight)]/10 hover:bg-[var(--highlight)]/20 text-[var(--highlight)] px-3 py-1.5 rounded-md transition"
+            >
+              <Calendar className="h-3.5 w-3.5" /> Planifier des relances
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -40,6 +40,7 @@ import { Route as AuthenticatedInvoicesInvoiceIdRouteImport } from './routes/_au
 import { Route as AuthenticatedDebtorsNewRouteImport } from './routes/_authenticated/debtors.new'
 import { Route as AuthenticatedDebtorsDebtorIdRouteImport } from './routes/_authenticated/debtors.$debtorId'
 import { Route as AdminSwitchClientIdRouteImport } from './routes/_admin/switch.$clientId'
+import { Route as AuthenticatedRelancesPlanDebtorIdRouteImport } from './routes/_authenticated/relances.plan.$debtorId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -200,6 +201,12 @@ const AdminSwitchClientIdRoute = AdminSwitchClientIdRouteImport.update({
   path: '/switch/$clientId',
   getParentRoute: () => AdminRoute,
 } as any)
+const AuthenticatedRelancesPlanDebtorIdRoute =
+  AuthenticatedRelancesPlanDebtorIdRouteImport.update({
+    id: '/plan/$debtorId',
+    path: '/plan/$debtorId',
+    getParentRoute: () => AuthenticatedRelancesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -222,7 +229,7 @@ export interface FileRoutesByFullPath {
   '/invoices': typeof AuthenticatedInvoicesRouteWithChildren
   '/payment-plans': typeof AuthenticatedPaymentPlansRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/relances': typeof AuthenticatedRelancesRoute
+  '/relances': typeof AuthenticatedRelancesRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/switch/$clientId': typeof AdminSwitchClientIdRoute
   '/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/invoices/import': typeof AuthenticatedInvoicesImportRoute
   '/debtors/': typeof AuthenticatedDebtorsIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
+  '/relances/plan/$debtorId': typeof AuthenticatedRelancesPlanDebtorIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -251,7 +259,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof AuthenticatedInboxRoute
   '/payment-plans': typeof AuthenticatedPaymentPlansRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/relances': typeof AuthenticatedRelancesRoute
+  '/relances': typeof AuthenticatedRelancesRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/switch/$clientId': typeof AdminSwitchClientIdRoute
   '/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
@@ -260,6 +268,7 @@ export interface FileRoutesByTo {
   '/invoices/import': typeof AuthenticatedInvoicesImportRoute
   '/debtors': typeof AuthenticatedDebtorsIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
+  '/relances/plan/$debtorId': typeof AuthenticatedRelancesPlanDebtorIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -285,7 +294,7 @@ export interface FileRoutesById {
   '/_authenticated/invoices': typeof AuthenticatedInvoicesRouteWithChildren
   '/_authenticated/payment-plans': typeof AuthenticatedPaymentPlansRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/_authenticated/relances': typeof AuthenticatedRelancesRoute
+  '/_authenticated/relances': typeof AuthenticatedRelancesRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_admin/switch/$clientId': typeof AdminSwitchClientIdRoute
   '/_authenticated/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
@@ -294,6 +303,7 @@ export interface FileRoutesById {
   '/_authenticated/invoices/import': typeof AuthenticatedInvoicesImportRoute
   '/_authenticated/debtors/': typeof AuthenticatedDebtorsIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
+  '/_authenticated/relances/plan/$debtorId': typeof AuthenticatedRelancesPlanDebtorIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/invoices/import'
     | '/debtors/'
     | '/invoices/'
+    | '/relances/plan/$debtorId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -356,6 +367,7 @@ export interface FileRouteTypes {
     | '/invoices/import'
     | '/debtors'
     | '/invoices'
+    | '/relances/plan/$debtorId'
   id:
     | '__root__'
     | '/'
@@ -389,6 +401,7 @@ export interface FileRouteTypes {
     | '/_authenticated/invoices/import'
     | '/_authenticated/debtors/'
     | '/_authenticated/invoices/'
+    | '/_authenticated/relances/plan/$debtorId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -622,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSwitchClientIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_authenticated/relances/plan/$debtorId': {
+      id: '/_authenticated/relances/plan/$debtorId'
+      path: '/plan/$debtorId'
+      fullPath: '/relances/plan/$debtorId'
+      preLoaderRoute: typeof AuthenticatedRelancesPlanDebtorIdRouteImport
+      parentRoute: typeof AuthenticatedRelancesRoute
+    }
   }
 }
 
@@ -681,6 +701,20 @@ const AuthenticatedInvoicesRouteWithChildren =
     AuthenticatedInvoicesRouteChildren,
   )
 
+interface AuthenticatedRelancesRouteChildren {
+  AuthenticatedRelancesPlanDebtorIdRoute: typeof AuthenticatedRelancesPlanDebtorIdRoute
+}
+
+const AuthenticatedRelancesRouteChildren: AuthenticatedRelancesRouteChildren = {
+  AuthenticatedRelancesPlanDebtorIdRoute:
+    AuthenticatedRelancesPlanDebtorIdRoute,
+}
+
+const AuthenticatedRelancesRouteWithChildren =
+  AuthenticatedRelancesRoute._addFileChildren(
+    AuthenticatedRelancesRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDebtorsRoute: typeof AuthenticatedDebtorsRouteWithChildren
@@ -688,7 +722,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedInvoicesRoute: typeof AuthenticatedInvoicesRouteWithChildren
   AuthenticatedPaymentPlansRoute: typeof AuthenticatedPaymentPlansRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedRelancesRoute: typeof AuthenticatedRelancesRoute
+  AuthenticatedRelancesRoute: typeof AuthenticatedRelancesRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
 }
 
@@ -699,7 +733,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInvoicesRoute: AuthenticatedInvoicesRouteWithChildren,
   AuthenticatedPaymentPlansRoute: AuthenticatedPaymentPlansRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedRelancesRoute: AuthenticatedRelancesRoute,
+  AuthenticatedRelancesRoute: AuthenticatedRelancesRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
 }
 
