@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Sliders, Check, Sparkles, PenLine, CalendarClock, RotateCcw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sliders, Check, Sparkles, PenLine, CalendarClock, RotateCcw, CreditCard } from "lucide-react";
 import { useSettings, setSettings, composeOutgoingBody } from "@/lib/settings-store";
 import {
   useRelanceSequence,
@@ -9,6 +9,8 @@ import {
   CHANNEL_META,
   type RelanceChannel,
 } from "@/lib/relance-sequence";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SubscriptionTab } from "@/components/settings/subscription-tab";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Paramètres — Oraya" }] }),
@@ -19,6 +21,16 @@ function SettingsPage() {
   const s = useSettings();
   const sequence = useRelanceSequence();
   const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("general");
+
+  // Initialise l'onglet actif depuis ?tab=
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "subscription" || tab === "general") {
+      setActiveTab(tab);
+    }
+  }, []);
 
   function update<K extends keyof typeof s>(k: K, v: (typeof s)[K]) {
     setSettings({ [k]: v } as Partial<typeof s>);
@@ -39,12 +51,28 @@ function SettingsPage() {
       <header>
         <p className="text-sm text-muted-foreground">Compte</p>
         <h1 className="text-3xl text-[var(--navy)] mt-1 flex items-center gap-3">
-          <Sliders className="h-7 w-7" /> Paramètres IA & e-mails
+          <Sliders className="h-7 w-7" /> Paramètres
         </h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Ces réglages sont appliqués à chaque réponse envoyée — automatique ou validée manuellement — depuis la boîte de réception.
-        </p>
       </header>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="general">
+            <Sliders className="h-3.5 w-3.5 mr-1.5" /> IA & e-mails
+          </TabsTrigger>
+          <TabsTrigger value="subscription">
+            <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Abonnement
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="subscription" className="space-y-6 mt-6">
+          <SubscriptionTab />
+        </TabsContent>
+
+        <TabsContent value="general" className="space-y-6 mt-6">
+          <p className="text-sm text-muted-foreground">
+            Ces réglages sont appliqués à chaque réponse envoyée — automatique ou validée manuellement — depuis la boîte de réception.
+          </p>
 
       <Section title="Seuil d'envoi automatique" icon={<Sparkles className="h-4 w-4" />}>
         <p className="text-sm text-muted-foreground">
@@ -144,6 +172,8 @@ function SettingsPage() {
           <Check className="h-4 w-4" /> Modifications enregistrées
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
