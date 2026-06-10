@@ -215,6 +215,20 @@ export const persistCsvImport = createServerFn({ method: "POST" })
       let debtorId = existingDebtors?.[0]?.id;
       let firstInvoiceDate = existingDebtors?.[0]?.first_invoice_date ?? null;
 
+      // Calcule next_relance_date selon la situation de la facture :
+      //  - facture déjà échue → relance prévue today (le cron la prendra demain matin)
+      //  - facture pas encore échue → pré-relance prévue J-5 avant due_date
+      const dueDate = new Date(row.due);
+      const todayDate = new Date(today);
+      let nextRelanceDate: string;
+      if (dueDate <= todayDate) {
+        nextRelanceDate = today;
+      } else {
+        const pre = new Date(dueDate);
+        pre.setDate(pre.getDate() - 5);
+        nextRelanceDate = pre < todayDate ? today : pre.toISOString().slice(0, 10);
+      }
+
       if (!debtorId) {
         const { data: newDebtor, error: debtorErr } = await supabaseAdmin
           .from("debtors")
@@ -228,6 +242,8 @@ export const persistCsvImport = createServerFn({ method: "POST" })
             contact_validated: false,
             status: "active",
             first_invoice_date: row.issued, // utilisé par le composant D du score
+            next_relance_date: nextRelanceDate, // déclencheur pour le cron enqueue-relances
+            workflow_status: "en_attente",
           })
           .select("id")
           .single();
@@ -241,6 +257,15 @@ export const persistCsvImport = createServerFn({ method: "POST" })
           .update({ first_invoice_date: row.issued })
           .eq("id", debtorId);
       }
+
+      // Toujours s'assurer qu'il y a une next_relance_date (cas débiteur existant
+      // qui n'en avait pas — courant si on importe pour la première fois sur un
+      // débiteur créé manuellement)
+      await supabaseAdmin
+        .from("debtors")
+        .update({ next_relance_date: nextRelanceDate })
+        .eq("id", debtorId)
+        .is("next_relance_date", null);
 
       const paid = row.paid ?? 0;
       const amount = row.amount;

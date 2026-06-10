@@ -1,10 +1,13 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, FileText, Send } from "lucide-react";
+import { ArrowLeft, FileText, Send, Plus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { getInvoiceById } from "@/lib/queries/invoices";
 import { useRelances } from "@/lib/relances-store";
 import { formatEuro } from "@/lib/mock-data";
+import { CreateRelanceModal } from "@/components/relances/create-relance-modal";
+import type { TemplateCode } from "@/lib/relances/templates";
 
 export const Route = createFileRoute("/_authenticated/invoices/$invoiceId")({
   head: () => ({ meta: [{ title: "Facture — Oraya" }] }),
@@ -20,6 +23,9 @@ function InvoiceDetail() {
     queryFn: () => fetchInvoice({ data: { invoiceId } }),
   });
   const relances = useRelances();
+  const [showModal, setShowModal] = useState(false);
+  // Sélection automatique d'un template par défaut selon le retard
+  const [defaultTemplate, setDefaultTemplate] = useState<TemplateCode>("A2");
 
   if (isLoading) {
     return <div className="p-10 text-center text-muted-foreground">Chargement…</div>;
@@ -91,7 +97,24 @@ function InvoiceDetail() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg text-[var(--navy)] flex items-center gap-2"><Send className="h-4 w-4" /> Historique des relances</h2>
-          <Link to="/relances" className="text-xs text-[var(--highlight)] hover:underline">Voir toutes les relances</Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                // Pré-sélectionne un template selon le retard
+                if (daysOverdue < 0) setDefaultTemplate("A1"); // pré-relance
+                else if (daysOverdue < 7) setDefaultTemplate("A2");
+                else if (daysOverdue < 15) setDefaultTemplate("B2");
+                else if (daysOverdue < 30) setDefaultTemplate("B3");
+                else setDefaultTemplate("C3a");
+                setShowModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 bg-[var(--highlight)] hover:bg-[#1A6FD8] text-white text-xs font-medium px-3 py-1.5 rounded-md transition"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Créer une relance
+            </button>
+            <Link to="/relances" className="text-xs text-[var(--highlight)] hover:underline">Voir toutes</Link>
+          </div>
         </div>
         <div className="bg-white border border-border rounded-xl divide-y divide-border">
           {invRelances.length === 0 && (
@@ -109,6 +132,14 @@ function InvoiceDetail() {
           ))}
         </div>
       </section>
+
+      {showModal && (
+        <CreateRelanceModal
+          invoiceId={invoiceId}
+          defaultTemplate={defaultTemplate}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 }

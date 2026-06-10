@@ -91,13 +91,17 @@ export const getAdminClients = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<AdminClientRow[]> => {
     await requireAdmin(context.userId);
 
-    const { data: clients, error } = await supabaseAdmin
+    // Cast en any car les colonnes Stripe (subscription_status, current_period_end)
+    // ne sont pas encore dans les types Supabase générés
+    const { data: clients, error } = (await supabaseAdmin
       .from("clients")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .select(
-        "id, company_name, contact_email, plan_type, onboarding_status, created_at, updated_at, ca_annuel, subscription_status, current_period_end",
+        "id, company_name, contact_email, plan_type, onboarding_status, created_at, updated_at, ca_annuel, subscription_status, current_period_end" as any,
       )
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .order("created_at", { ascending: false })) as any;
     if (error) throw new Error(error.message);
 
     const now = Date.now();
