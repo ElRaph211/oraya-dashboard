@@ -13,7 +13,7 @@ export async function sendRelanceEmail(params: {
   return sendEmail({
     from: params.fromAlias,
     to: params.debtorEmail,
-    replyTo: "relances@orayasystem.fr",
+    replyTo: "replies@relances.orayasystem.fr",
     subject: params.subject,
     html: wrapInEmailLayout(params.body, params.fromAliasName),
     bcc: params.clientBccEmail,

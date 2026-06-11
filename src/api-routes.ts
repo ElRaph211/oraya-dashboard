@@ -33,9 +33,9 @@ type ResendInboundEvent = {
   };
 };
 
-// Domaine attendu pour les emails inbound (reply-to). Toute adresse qui ne
-// contient pas ce domaine sera rejetée pour éviter le spam.
-const INBOUND_DOMAIN = "orayasystem.fr";
+// Subdomain dédié pour l'inbound (Option B). Le MX de relances.orayasystem.fr
+// pointe vers inbound.resend.com — on rejette tout email qui ne vise pas ce domaine.
+const INBOUND_DOMAIN = "relances.orayasystem.fr";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
