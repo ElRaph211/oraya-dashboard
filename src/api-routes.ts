@@ -84,7 +84,10 @@ export async function handleApiRoute(request: Request): Promise<Response | null>
 
 // ---------------------------------------------------------------------------
 async function handleResendInbound(request: Request): Promise<Response> {
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET?.trim();
+  // Inbound et events ont chacun leur propre Signing Secret dans Resend.
+  // RESEND_INBOUND_SECRET = secret du webhook "email.received"
+  // RESEND_WEBHOOK_SECRET = secret du webhook "email.bounced" (events)
+  const webhookSecret = (process.env.RESEND_INBOUND_SECRET ?? process.env.RESEND_WEBHOOK_SECRET)?.trim();
   let event: ResendInboundEvent;
 
   // 1. Vérification signature svix (obligatoire en prod, soft-fallback en dev)
@@ -99,10 +102,11 @@ async function handleResendInbound(request: Request): Promise<Response> {
     try {
       event = svix.verify(body, headers) as ResendInboundEvent;
     } catch {
+      console.error("[Resend Inbound] Signature invalide — vérifie RESEND_INBOUND_SECRET dans Railway");
       return jsonResponse({ error: "Invalid signature" }, 401);
     }
   } else {
-    console.warn("[Resend Inbound] RESEND_WEBHOOK_SECRET non configuré");
+    console.warn("[Resend Inbound] Aucun secret configuré — parsing JSON brut (dev uniquement)");
     try {
       event = (await request.json()) as ResendInboundEvent;
     } catch {
