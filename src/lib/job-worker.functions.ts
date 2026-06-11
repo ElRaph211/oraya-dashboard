@@ -104,57 +104,61 @@ Catégories possibles :
   };
 }
 
-/** Traite les jobs pending dans job_queue (à appeler par un cron ou manuellement) */
+export type ProcessJobQueueResult = { ok: true; processed: number; errors: number };
+
+/** Logique core — appelable depuis un handler de route sans passer par TanStack Start */
+export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueResult> {
+  const { data: jobs } = await supabaseAdmin
+    .from("job_queue")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (!jobs || jobs.length === 0) return { ok: true, processed: 0, errors: 0 };
+
+  let processed = 0;
+  let errors = 0;
+
+  for (const job of jobs) {
+    try {
+      await supabaseAdmin
+        .from("job_queue")
+        .update({ status: "processing" })
+        .eq("id", job.id);
+
+      if (job.job_type === "classify_response") {
+        await handleClassifyResponse(job);
+      } else if (job.job_type === "send_relance") {
+        await handleSendRelance(job);
+      }
+
+      await supabaseAdmin
+        .from("job_queue")
+        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .eq("id", job.id);
+      processed++;
+    } catch (e) {
+      errors++;
+      await supabaseAdmin
+        .from("job_queue")
+        .update({
+          status: "failed",
+          error_message: e instanceof Error ? e.message : String(e),
+        })
+        .eq("id", job.id);
+    }
+  }
+
+  return { ok: true, processed, errors };
+}
+
+/** Wrapper createServerFn — pour usage client-side futur */
 export const processJobQueue = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ limit: z.number().int().min(1).max(50).default(10) }).parse(input ?? {}),
   )
-  .handler(async ({ data }) => {
-    const { data: jobs } = await supabaseAdmin
-      .from("job_queue")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true })
-      .limit(data.limit);
-
-    if (!jobs || jobs.length === 0) return { ok: true, processed: 0 };
-
-    let processed = 0;
-    let errors = 0;
-
-    for (const job of jobs) {
-      try {
-        // Marquer en cours
-        await supabaseAdmin
-          .from("job_queue")
-          .update({ status: "processing" })
-          .eq("id", job.id);
-
-        if (job.job_type === "classify_response") {
-          await handleClassifyResponse(job);
-        } else if (job.job_type === "send_relance") {
-          await handleSendRelance(job);
-        }
-
-        await supabaseAdmin
-          .from("job_queue")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
-          .eq("id", job.id);
-        processed++;
-      } catch (e) {
-        errors++;
-        await supabaseAdmin
-          .from("job_queue")
-          .update({
-            status: "failed",
-            error_message: e instanceof Error ? e.message : String(e),
-          })
-          .eq("id", job.id);
-      }
-    }
-
-    return { ok: true, processed, errors };
-  });
+  .handler(async ({ data }) => processJobQueueCore(data.limit));
 
 /* -------------------------------------------------------------------------- */
 /*  handleSendRelance — envoie un email de relance via Resend                 */

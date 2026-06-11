@@ -212,7 +212,7 @@ async function handleStripeWebhookRoute(request: Request): Promise<Response> {
 
 // ---------------------------------------------------------------------------
 async function handleEnqueueRelances(request: Request): Promise<Response> {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET?.trim();
   if (cronSecret) {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
@@ -227,7 +227,7 @@ async function handleEnqueueRelances(request: Request): Promise<Response> {
 
 // ---------------------------------------------------------------------------
 async function handleProcessQueue(request: Request): Promise<Response> {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET?.trim();
   if (cronSecret) {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
@@ -235,14 +235,14 @@ async function handleProcessQueue(request: Request): Promise<Response> {
     }
   }
 
-  const { processJobQueue } = await import("@/lib/job-worker.functions");
-  const result = await processJobQueue({ data: { limit: 10 } });
+  const { processJobQueueCore } = await import("@/lib/job-worker.functions");
+  const result = await processJobQueueCore(10);
   return jsonResponse(result);
 }
 
 // ---------------------------------------------------------------------------
 async function handleGenerateRecap(request: Request): Promise<Response> {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET?.trim();
   if (cronSecret) {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
