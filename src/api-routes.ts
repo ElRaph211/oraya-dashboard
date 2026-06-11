@@ -20,6 +20,23 @@ type ResendEvent = {
   };
 };
 
+type ResendInboundEvent = {
+  type: string;
+  data: {
+    email_id?: string;
+    from?: string;
+    to?: string[];
+    subject?: string;
+    text?: string;
+    html?: string;
+    created_at?: string;
+  };
+};
+
+// Domaine attendu pour les emails inbound (reply-to). Toute adresse qui ne
+// contient pas ce domaine sera rejetée pour éviter le spam.
+const INBOUND_DOMAIN = "orayasystem.fr";
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -67,17 +84,58 @@ export async function handleApiRoute(request: Request): Promise<Response | null>
 
 // ---------------------------------------------------------------------------
 async function handleResendInbound(request: Request): Promise<Response> {
-  let payload: Record<string, unknown>;
-  try {
-    payload = await request.json();
-  } catch {
-    return jsonResponse({ error: "Invalid JSON" }, 400);
+  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET?.trim();
+  let event: ResendInboundEvent;
+
+  // 1. Vérification signature svix (obligatoire en prod, soft-fallback en dev)
+  if (webhookSecret) {
+    const svix = new Webhook(webhookSecret);
+    const body = await request.text();
+    const headers = {
+      "svix-id": request.headers.get("svix-id") ?? "",
+      "svix-timestamp": request.headers.get("svix-timestamp") ?? "",
+      "svix-signature": request.headers.get("svix-signature") ?? "",
+    };
+    try {
+      event = svix.verify(body, headers) as ResendInboundEvent;
+    } catch {
+      return jsonResponse({ error: "Invalid signature" }, 401);
+    }
+  } else {
+    console.warn("[Resend Inbound] RESEND_WEBHOOK_SECRET non configuré");
+    try {
+      event = (await request.json()) as ResendInboundEvent;
+    } catch {
+      return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
   }
 
-  const fromRaw = (payload.from as string) ?? "";
-  const senderEmail = fromRaw.match(/<(.+)>/)?.[1] ?? fromRaw.trim();
-  if (!senderEmail) return jsonResponse({ ok: false, error: "No sender email" }, 400);
+  // 2. Filtre type : on ne s'intéresse qu'aux emails reçus
+  if (event.type !== "email.received") {
+    return jsonResponse({ ok: true, ignored: event.type });
+  }
 
+  const data = event.data ?? {};
+
+  // 3. Filtre destinataire : doit être adressé à notre domaine
+  const toAddresses: string[] = data.to ?? [];
+  const isForUs = toAddresses.some((addr) => addr.toLowerCase().includes(INBOUND_DOMAIN));
+  if (!isForUs) {
+    return jsonResponse({ ok: true, status: "not_for_us" });
+  }
+
+  // 4. Extraction de l'expéditeur (format "Name <email@x>" ou "email@x")
+  const fromRaw = data.from ?? "";
+  const senderEmail = fromRaw.match(/<(.+)>/)?.[1] ?? fromRaw.trim();
+  if (!senderEmail) {
+    return jsonResponse({ ok: false, error: "No sender email" }, 400);
+  }
+
+  const emailSubject = data.subject ?? "";
+  const emailBody = data.text ?? data.html ?? "";
+  const receivedAt = data.created_at ?? new Date().toISOString();
+
+  // 5. Résolution debtor par email expéditeur (le plus récemment relancé)
   const { data: debtor } = await supabaseAdmin
     .from("debtors")
     .select("id, client_id, company_name")
@@ -87,29 +145,36 @@ async function handleResendInbound(request: Request): Promise<Response> {
     .limit(1)
     .maybeSingle();
 
+  // 6a. Si pas de debtor → unmatched_emails (Raphaël triera à la main)
   if (!debtor) {
     await supabaseAdmin.from("unmatched_emails").insert({
       email_from: senderEmail,
-      email_subject: (payload.subject as string) ?? "",
-      email_body: (payload.text as string) ?? (payload.html as string) ?? "",
-      received_at: new Date().toISOString(),
+      email_subject: emailSubject,
+      email_body: emailBody,
+      received_at: receivedAt,
     });
     return jsonResponse({ ok: true, status: "unmatched" });
   }
 
+  // 6b. Sinon → job classify_response (Claude Haiku le traitera via process-queue)
   await supabaseAdmin.from("job_queue").insert({
     debtor_id: debtor.id,
     client_id: debtor.client_id,
     job_type: "classify_response",
     status: "pending",
     payload: {
+      email_id: data.email_id,
       email_from: senderEmail,
-      email_subject: (payload.subject as string) ?? "",
-      email_body: (payload.text as string) ?? (payload.html as string) ?? "",
-      received_at: new Date().toISOString(),
+      email_to: toAddresses,
+      email_subject: emailSubject,
+      email_body: emailBody,
+      received_at: receivedAt,
     },
   });
 
+  console.log(
+    `[resend-inbound] Job classify_response créé pour ${senderEmail} (debtor ${debtor.id})`,
+  );
   return jsonResponse({ ok: true, status: "queued", debtor_id: debtor.id });
 }
 
