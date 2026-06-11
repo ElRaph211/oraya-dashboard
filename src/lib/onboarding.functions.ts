@@ -165,9 +165,10 @@ export const requestEmailAlias = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { userId } = context;
-    // Construit l'alias complet : prenom.nom@nexus-conseil.fr → on prend juste la partie locale
+    // Construit l'alias complet sur le domaine Resend vérifié
+    const domain = process.env.RESEND_DOMAIN ?? "relances.orayasystem.fr";
     const local = data.aliasDesired.toLowerCase().replace(/[^a-z0-9.-]/g, "").slice(0, 40);
-    const aliasEmail = `${local}@orayasystem.fr`;
+    const aliasEmail = `${local}@${domain}`;
 
     const { error } = await supabaseAdmin
       .from("clients")
