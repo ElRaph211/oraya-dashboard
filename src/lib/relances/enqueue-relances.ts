@@ -161,8 +161,9 @@ export async function enqueueDueRelances(): Promise<EnqueueRelancesResult> {
         date_echeance: oldestInvoice.due_date,
         jours_retard: nextTpl.days_since_due,
         entreprise_client: client.company_name,
-        alias_name: client.email_alias_name ?? undefined,
-        alias_email: client.email_alias,
+        alias_name: client.email_alias_name ?? client.company_name ?? undefined,
+        // Signature = vrai email du créancier (pour que le débiteur le contacte direct)
+        alias_email: client.contact_email ?? undefined,
       });
 
       // Si débiteur stratégique → status pending_approval, sinon draft pour envoi auto

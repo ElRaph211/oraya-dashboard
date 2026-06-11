@@ -47,8 +47,10 @@ export const previewRelanceFromInvoice = createServerFn({ method: "GET" })
       date_echeance: invoice.due_date,
       jours_retard: Math.max(0, daysSinceDue),
       entreprise_client: client.company_name,
-      alias_name: client.email_alias_name ?? undefined,
-      alias_email: client.email_alias ?? undefined,
+      alias_name: client.email_alias_name ?? client.company_name ?? undefined,
+      // Signature = vrai email du créancier (pas l'alias Oraya) pour que le
+      // débiteur puisse le contacter directement.
+      alias_email: client.contact_email ?? undefined,
     });
 
     return {
@@ -144,6 +146,7 @@ export const createRelanceFromInvoice = createServerFn({ method: "POST" })
           debtorEmail: debtor.contact_email,
           fromAlias,
           fromAliasName: fromName,
+          clientReplyToEmail: client.contact_email,
           subject: data.subject,
           body: data.body,
           clientBccEmail: client.bcc_enabled ? client.contact_email : undefined,

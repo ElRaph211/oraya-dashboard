@@ -182,6 +182,7 @@ export const sendRelanceNow = createServerFn({ method: "POST" })
         debtorEmail: relance.email_to,
         fromAlias,
         fromAliasName: fromName,
+        clientReplyToEmail: client.contact_email,
         subject: relance.email_subject,
         body: relance.email_body,
         clientBccEmail: client.bcc_enabled ? client.contact_email : undefined,

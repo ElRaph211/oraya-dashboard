@@ -2,20 +2,29 @@ import { sendEmail, wrapInEmailLayout } from "../send";
 
 export async function sendRelanceEmail(params: {
   debtorEmail: string;
-  fromAlias: string;       // ex: "Léa Moreau <lea.moreau@nexus-conseil.fr>"
-  fromAliasName: string;   // ex: "Léa Moreau"
+  /** From visuel : "Syndes Solutions <contact@relances.orayasystem.fr>" */
+  fromAlias: string;
+  /** Nom affiché de la signature : "Syndes Solutions" */
+  fromAliasName: string;
+  /**
+   * Email réel du client (créancier) — utilisé comme Reply-To
+   * et affiché dans la signature pour que le débiteur puisse le contacter.
+   */
+  clientReplyToEmail: string;
   subject: string;
-  body: string;            // HTML généré par l'IA
-  clientBccEmail?: string; // si bcc_enabled = true
-  templateCode: string;    // ex: "A1", "B2", "C3a"
+  body: string;
+  /** Si bcc_enabled = true, on met le client en BCC */
+  clientBccEmail?: string;
+  templateCode: string;
   relanceId: string;
 }) {
   return sendEmail({
     from: params.fromAlias,
     to: params.debtorEmail,
-    replyTo: process.env.REPLY_TO_EMAIL ?? "replies@relances.orayasystem.fr",
+    // Reply-To = email du client → quand le débiteur répond, ça part direct chez Syndes
+    replyTo: params.clientReplyToEmail,
     subject: params.subject,
-    html: wrapInEmailLayout(params.body, params.fromAliasName),
+    html: wrapInEmailLayout(params.body, params.fromAliasName, params.clientReplyToEmail),
     bcc: params.clientBccEmail,
     tags: [
       { name: "type",       value: "relance" },
