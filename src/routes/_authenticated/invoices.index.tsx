@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { FileText, Search, Upload } from "lucide-react";
+import { Archive, FileText, Search, Upload } from "lucide-react";
 import { formatEuro } from "@/lib/mock-data";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { getInvoices } from "@/lib/queries/invoices";
 import { z } from "zod";
 
 const searchSchema = z.object({
-  status: z.enum(["all", "overdue", "pending", "partial", "disputed", "paid", "irrecoverable"]).catch("all"),
+  status: z.enum(["all", "overdue", "pending", "partial", "disputed", "irrecoverable"]).catch("all"),
   q: z.string().catch(""),
 });
 
@@ -18,13 +18,12 @@ export const Route = createFileRoute("/_authenticated/invoices/")({
   component: InvoicesPage,
 });
 
-const FILTERS: { key: "all" | "overdue" | "pending" | "partial" | "disputed" | "paid" | "irrecoverable"; label: string }[] = [
+const FILTERS: { key: "all" | "overdue" | "pending" | "partial" | "disputed" | "irrecoverable"; label: string }[] = [
   { key: "all", label: "Toutes" },
   { key: "overdue", label: "En retard" },
   { key: "pending", label: "À échoir" },
   { key: "partial", label: "Partielles" },
   { key: "disputed", label: "Litige" },
-  { key: "paid", label: "Réglées" },
   { key: "irrecoverable", label: "Irrécouvrables" },
 ];
 
@@ -67,6 +66,8 @@ function InvoicesPage() {
 
   const filtered = useMemo(() => {
     return invoices.filter((i) => {
+      // Les factures réglées vivent dans /invoices/archive, jamais ici
+      if (i.status === "paid") return false;
       if (status !== "all" && i.status !== status) return false;
       if (q && !`${i.number} ${i.debtor}`.toLowerCase().includes(q.toLowerCase())) return false;
       return true;
@@ -94,12 +95,20 @@ function InvoicesPage() {
             {filtered.length} factures · {formatEuro(total)} restant dû
           </p>
         </div>
-        <Link
-          to="/invoices/import"
-          className="inline-flex items-center gap-2 bg-[var(--highlight)] text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-[#1A6FD8] transition"
-        >
-          <Upload className="h-4 w-4" /> Importer un CSV
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/invoices/archive"
+            className="inline-flex items-center gap-2 bg-white border border-border text-[var(--navy)] text-sm font-medium px-4 py-2.5 rounded-lg hover:border-[var(--highlight)] transition"
+          >
+            <Archive className="h-4 w-4" /> Archive
+          </Link>
+          <Link
+            to="/invoices/import"
+            className="inline-flex items-center gap-2 bg-[var(--highlight)] text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-[#1A6FD8] transition"
+          >
+            <Upload className="h-4 w-4" /> Importer un CSV
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">

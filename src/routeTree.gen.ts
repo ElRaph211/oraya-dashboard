@@ -36,6 +36,7 @@ import { Route as AdminClassificationsRouteImport } from './routes/_admin/classi
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices.index'
 import { Route as AuthenticatedDebtorsIndexRouteImport } from './routes/_authenticated/debtors.index'
 import { Route as AuthenticatedInvoicesImportRouteImport } from './routes/_authenticated/invoices.import'
+import { Route as AuthenticatedInvoicesArchiveRouteImport } from './routes/_authenticated/invoices.archive'
 import { Route as AuthenticatedInvoicesInvoiceIdRouteImport } from './routes/_authenticated/invoices.$invoiceId'
 import { Route as AuthenticatedDebtorsNewRouteImport } from './routes/_authenticated/debtors.new'
 import { Route as AuthenticatedDebtorsDebtorIdRouteImport } from './routes/_authenticated/debtors.$debtorId'
@@ -179,6 +180,12 @@ const AuthenticatedInvoicesImportRoute =
     path: '/import',
     getParentRoute: () => AuthenticatedInvoicesRoute,
   } as any)
+const AuthenticatedInvoicesArchiveRoute =
+  AuthenticatedInvoicesArchiveRouteImport.update({
+    id: '/archive',
+    path: '/archive',
+    getParentRoute: () => AuthenticatedInvoicesRoute,
+  } as any)
 const AuthenticatedInvoicesInvoiceIdRoute =
   AuthenticatedInvoicesInvoiceIdRouteImport.update({
     id: '/$invoiceId',
@@ -235,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
   '/debtors/new': typeof AuthenticatedDebtorsNewRoute
   '/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
+  '/invoices/archive': typeof AuthenticatedInvoicesArchiveRoute
   '/invoices/import': typeof AuthenticatedInvoicesImportRoute
   '/debtors/': typeof AuthenticatedDebtorsIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -265,6 +273,7 @@ export interface FileRoutesByTo {
   '/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
   '/debtors/new': typeof AuthenticatedDebtorsNewRoute
   '/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
+  '/invoices/archive': typeof AuthenticatedInvoicesArchiveRoute
   '/invoices/import': typeof AuthenticatedInvoicesImportRoute
   '/debtors': typeof AuthenticatedDebtorsIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
@@ -300,6 +309,7 @@ export interface FileRoutesById {
   '/_authenticated/debtors/$debtorId': typeof AuthenticatedDebtorsDebtorIdRoute
   '/_authenticated/debtors/new': typeof AuthenticatedDebtorsNewRoute
   '/_authenticated/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
+  '/_authenticated/invoices/archive': typeof AuthenticatedInvoicesArchiveRoute
   '/_authenticated/invoices/import': typeof AuthenticatedInvoicesImportRoute
   '/_authenticated/debtors/': typeof AuthenticatedDebtorsIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/debtors/$debtorId'
     | '/debtors/new'
     | '/invoices/$invoiceId'
+    | '/invoices/archive'
     | '/invoices/import'
     | '/debtors/'
     | '/invoices/'
@@ -364,6 +375,7 @@ export interface FileRouteTypes {
     | '/debtors/$debtorId'
     | '/debtors/new'
     | '/invoices/$invoiceId'
+    | '/invoices/archive'
     | '/invoices/import'
     | '/debtors'
     | '/invoices'
@@ -398,6 +410,7 @@ export interface FileRouteTypes {
     | '/_authenticated/debtors/$debtorId'
     | '/_authenticated/debtors/new'
     | '/_authenticated/invoices/$invoiceId'
+    | '/_authenticated/invoices/archive'
     | '/_authenticated/invoices/import'
     | '/_authenticated/debtors/'
     | '/_authenticated/invoices/'
@@ -607,6 +620,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInvoicesImportRouteImport
       parentRoute: typeof AuthenticatedInvoicesRoute
     }
+    '/_authenticated/invoices/archive': {
+      id: '/_authenticated/invoices/archive'
+      path: '/archive'
+      fullPath: '/invoices/archive'
+      preLoaderRoute: typeof AuthenticatedInvoicesArchiveRouteImport
+      parentRoute: typeof AuthenticatedInvoicesRoute
+    }
     '/_authenticated/invoices/$invoiceId': {
       id: '/_authenticated/invoices/$invoiceId'
       path: '/$invoiceId'
@@ -686,12 +706,14 @@ const AuthenticatedDebtorsRouteWithChildren =
 
 interface AuthenticatedInvoicesRouteChildren {
   AuthenticatedInvoicesInvoiceIdRoute: typeof AuthenticatedInvoicesInvoiceIdRoute
+  AuthenticatedInvoicesArchiveRoute: typeof AuthenticatedInvoicesArchiveRoute
   AuthenticatedInvoicesImportRoute: typeof AuthenticatedInvoicesImportRoute
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
 }
 
 const AuthenticatedInvoicesRouteChildren: AuthenticatedInvoicesRouteChildren = {
   AuthenticatedInvoicesInvoiceIdRoute: AuthenticatedInvoicesInvoiceIdRoute,
+  AuthenticatedInvoicesArchiveRoute: AuthenticatedInvoicesArchiveRoute,
   AuthenticatedInvoicesImportRoute: AuthenticatedInvoicesImportRoute,
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
 }
