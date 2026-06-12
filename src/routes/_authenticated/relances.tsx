@@ -31,7 +31,8 @@ const STATUS_LABELS: Record<string, { label: string; bg: string; fg: string }> =
 
 const FILTERS = [
   { key: "all", label: "Toutes" },
-  { key: "draft", label: "Brouillons" },
+  { key: "scheduled", label: "Programmées" },
+  { key: "draft", label: "À valider" },
   { key: "approved", label: "Validées" },
   { key: "sent", label: "Envoyées" },
   { key: "bounced", label: "En échec" },
@@ -63,11 +64,23 @@ function RelancesPage() {
     setTimeout(() => setToast(null), 4000);
   }
 
-  const filtered = relances.filter((r) => filter === "all" || r.status === filter);
+  const now = Date.now();
+  const isScheduled = (r: typeof relances[number]) =>
+    (r.status === "approved") && r.generated_at && new Date(r.generated_at).getTime() > now;
+
+  const filtered = relances.filter((r) => {
+    if (filter === "all") return true;
+    if (filter === "scheduled") return isScheduled(r);
+    if (filter === "draft") return r.status === "draft" || r.status === "pending_approval";
+    if (filter === "sent") return r.status === "sent" || r.status === "auto_sent";
+    if (filter === "approved") return r.status === "approved" && !isScheduled(r);
+    return r.status === filter;
+  });
   const counts = {
     all: relances.length,
+    scheduled: relances.filter((r) => isScheduled(r)).length,
     draft: relances.filter((r) => r.status === "draft" || r.status === "pending_approval").length,
-    approved: relances.filter((r) => r.status === "approved").length,
+    approved: relances.filter((r) => r.status === "approved" && !isScheduled(r)).length,
     sent: relances.filter((r) => r.status === "sent" || r.status === "auto_sent").length,
     bounced: relances.filter((r) => r.status === "bounced").length,
   };
@@ -229,11 +242,14 @@ function RelancesPage() {
             </thead>
             <tbody>
               {filtered.map((r) => {
-                const status = STATUS_LABELS[r.status] ?? STATUS_LABELS.draft;
+                const scheduled = isScheduled(r);
+                const status = scheduled
+                  ? { label: "Programmée", bg: "#EDE9FE", fg: "#5B21B6" }
+                  : STATUS_LABELS[r.status] ?? STATUS_LABELS.draft;
                 const isBusy = busy === r.id;
                 const canApprove = r.status === "draft" || r.status === "pending_approval";
                 const canCancel = canApprove || r.status === "approved";
-                const canSend = r.status === "approved";
+                const canSend = r.status === "approved" && !scheduled;
                 return (
                   <tr key={r.id} className="border-t border-border hover:bg-[var(--surface-soft)]/50 transition">
                     <td className="px-5 py-4">
@@ -255,7 +271,15 @@ function RelancesPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-xs text-muted-foreground">
-                      {new Date(r.generated_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                      {scheduled ? (
+                        <span className="text-violet-700">
+                          → {new Date(r.generated_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                          {" "}
+                          {new Date(r.generated_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      ) : (
+                        new Date(r.generated_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">

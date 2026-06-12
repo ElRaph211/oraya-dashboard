@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X, Send, Save, AlertTriangle, Mail } from "lucide-react";
+import { X, Send, Save, AlertTriangle, Mail, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import {
   previewRelanceFromInvoice,
@@ -40,6 +40,9 @@ export function CreateRelanceModal({
   const [templateCode, setTemplateCode] = useState<TemplateCode>(defaultTemplate ?? "A2");
   const [editedSubject, setEditedSubject] = useState<string | null>(null);
   const [editedBody, setEditedBody] = useState<string | null>(null);
+  // Programmation : si null → pas programmé
+  const [scheduledDate, setScheduledDate] = useState<string>("");
+  const [scheduledTime, setScheduledTime] = useState<string>("09:00");
 
   // Charge l'aperçu du template
   const { data: preview, isLoading: previewLoading } = useQuery({
@@ -57,20 +60,35 @@ export function CreateRelanceModal({
   const finalBody = editedBody ?? preview?.body ?? "";
   const template = TEMPLATES[templateCode];
 
+  type CreateMode = "now" | "queue" | "schedule";
   const createMutation = useMutation({
-    mutationFn: (sendNow: boolean) =>
-      createFn({
+    mutationFn: (mode: CreateMode) => {
+      let scheduledAt: string | undefined;
+      if (mode === "schedule") {
+        if (!scheduledDate) throw new Error("Choisis une date pour la programmation");
+        const localISO = `${scheduledDate}T${scheduledTime || "09:00"}:00`;
+        const d = new Date(localISO);
+        if (Number.isNaN(d.getTime())) throw new Error("Date invalide");
+        if (d.getTime() <= Date.now()) throw new Error("La date doit être dans le futur");
+        scheduledAt = d.toISOString();
+      }
+      return createFn({
         data: {
           invoiceId,
           templateCode,
           subject: finalSubject,
           body: finalBody,
-          sendNow,
+          sendNow: mode === "now",
+          scheduledAt,
         },
-      }),
+      });
+    },
     onSuccess: (result) => {
       if (result.status === "sent") {
         toast.success("Relance envoyée immédiatement ✉️");
+      } else if (result.status === "scheduled" && "scheduledAt" in result && result.scheduledAt) {
+        const d = new Date(result.scheduledAt);
+        toast.success(`Relance programmée pour le ${d.toLocaleDateString("fr-FR")} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`);
       } else {
         toast.success("Relance enregistrée en file");
       }
@@ -204,6 +222,41 @@ export function CreateRelanceModal({
                 : "Aperçu rendu avec les variables de la facture. Modifie librement avant envoi."}
             </p>
           </div>
+
+          {/* Programmation */}
+          <div className="border border-border rounded-md p-3 bg-white">
+            <div className="flex items-center gap-2 text-xs font-medium text-[var(--navy)] mb-2">
+              <Calendar className="h-3.5 w-3.5" /> Programmer l'envoi (optionnel)
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="date"
+                value={scheduledDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                className="px-3 py-1.5 text-sm bg-white border border-border rounded-md outline-none focus:border-[var(--highlight)]"
+              />
+              <input
+                type="time"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                className="px-3 py-1.5 text-sm bg-white border border-border rounded-md outline-none focus:border-[var(--highlight)]"
+              />
+              {scheduledDate && (
+                <button
+                  onClick={() => setScheduledDate("")}
+                  className="px-2 py-1.5 text-xs text-muted-foreground hover:text-[var(--navy)]"
+                >
+                  Effacer
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {scheduledDate
+                ? "L'envoi sera déclenché automatiquement à l'heure prévue par le cron (granularité ≈ 5 min)."
+                : "Laisser vide pour envoyer maintenant ou enregistrer en file."}
+            </p>
+          </div>
         </div>
 
         <div className="px-6 py-4 border-t border-border bg-[var(--surface-soft)]/50 flex flex-wrap gap-2 justify-end">
@@ -213,22 +266,35 @@ export function CreateRelanceModal({
           >
             Annuler
           </button>
-          <button
-            onClick={() => createMutation.mutate(false)}
-            disabled={createMutation.isPending || !!blockedReason || !finalSubject || !finalBody}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-border hover:border-[var(--highlight)] text-[var(--navy)] rounded-md transition disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-            Enregistrer en file
-          </button>
-          <button
-            onClick={() => createMutation.mutate(true)}
-            disabled={createMutation.isPending || !!blockedReason || !finalSubject || !finalBody}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[var(--highlight)] hover:bg-[#1A6FD8] text-white rounded-md transition disabled:opacity-50"
-          >
-            <Send className="h-4 w-4" />
-            {createMutation.isPending ? "Envoi…" : "Envoyer maintenant"}
-          </button>
+          {scheduledDate ? (
+            <button
+              onClick={() => createMutation.mutate("schedule")}
+              disabled={createMutation.isPending || !!blockedReason || !finalSubject || !finalBody}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-md transition disabled:opacity-50"
+            >
+              <Calendar className="h-4 w-4" />
+              {createMutation.isPending ? "Programmation…" : "Programmer"}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => createMutation.mutate("queue")}
+                disabled={createMutation.isPending || !!blockedReason || !finalSubject || !finalBody}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-border hover:border-[var(--highlight)] text-[var(--navy)] rounded-md transition disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" />
+                Enregistrer en file
+              </button>
+              <button
+                onClick={() => createMutation.mutate("now")}
+                disabled={createMutation.isPending || !!blockedReason || !finalSubject || !finalBody}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[var(--highlight)] hover:bg-[#1A6FD8] text-white rounded-md transition disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {createMutation.isPending ? "Envoi…" : "Envoyer maintenant"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

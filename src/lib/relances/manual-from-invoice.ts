@@ -98,6 +98,14 @@ const createInputSchema = z.object({
   body: z.string().min(1),
   /** Si true → envoi via Resend immédiat. Sinon → status=approved en file. */
   sendNow: z.boolean().default(false),
+  /**
+   * Date d'envoi programmé (ISO 8601). Si fourni :
+   *   - sendNow est ignoré (on ne déclenche pas d'envoi immédiat)
+   *   - la relance est créée en status=approved avec generated_at = scheduledAt
+   *   - un job send_relance est créé dans job_queue (le worker re-pend tant que
+   *     generated_at > now, ce qui permet la programmation)
+   */
+  scheduledAt: z.string().datetime().optional(),
 });
 
 export const createRelanceFromInvoice = createServerFn({ method: "POST" })
@@ -121,6 +129,15 @@ export const createRelanceFromInvoice = createServerFn({ method: "POST" })
       : (client.email_alias as string);
     const fromName = (client.email_alias_name as string | undefined) ?? client.company_name ?? "Oraya";
 
+    const isScheduled = !!data.scheduledAt;
+    // Si une date est programmée, on ne peut pas envoyer "maintenant"
+    const sendNow = isScheduled ? false : data.sendNow;
+    // Status initial :
+    //   - programmée → approved (sera envoyée par le worker quand l'heure sera là)
+    //   - envoi immédiat → approved (puis sent juste après dans le try)
+    //   - sauvegarde simple → draft (validation manuelle nécessaire)
+    const initialStatus = isScheduled || sendNow ? "approved" : "draft";
+
     // 1) Crée la relance dans relances_queue
     const { data: relance, error: relErr } = await supabaseAdmin
       .from("relances_queue")
@@ -137,14 +154,34 @@ export const createRelanceFromInvoice = createServerFn({ method: "POST" })
           0,
           Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / 86400000),
         ),
-        status: data.sendNow ? "approved" : "draft",
+        status: initialStatus,
+        // generated_at piloté : si programmée → date future, sinon now (par défaut DB)
+        ...(isScheduled ? { generated_at: data.scheduledAt } : {}),
       })
       .select("id")
       .single();
     if (relErr || !relance) throw new Error(relErr?.message ?? "Insert relance failed");
 
-    // 2) Si sendNow : envoi direct via Resend (pas d'attente du cron)
-    if (data.sendNow) {
+    // 2a) Si programmée : créer un job send_relance — le worker vérifie
+    //     generated_at > now et remet en pending tant que c'est trop tôt.
+    if (isScheduled) {
+      await supabaseAdmin.from("job_queue").insert({
+        debtor_id: debtor.id,
+        client_id: clientId,
+        job_type: "send_relance",
+        status: "pending",
+        payload: { relance_id: relance.id, template_code: data.templateCode },
+      });
+      return {
+        ok: true,
+        relanceId: relance.id,
+        status: "scheduled" as const,
+        scheduledAt: data.scheduledAt,
+      };
+    }
+
+    // 2b) Si sendNow : envoi direct via Resend (pas d'attente du cron)
+    if (sendNow) {
       try {
         const sendResult = await sendRelanceEmail({
           debtorEmail: debtor.contact_email,
