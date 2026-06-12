@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Settings, Check, Loader2, Mail, ShieldCheck, AlertCircle, RefreshCw, Send } from "lucide-react";
+import { Settings, Check, Loader2, Mail, ShieldCheck, AlertCircle, RefreshCw, Send, CreditCard } from "lucide-react";
 import { getMyProfile, updateMyProfile, type ClientProfile } from "@/lib/profile.functions";
 import { checkResendDomainStatus, sendTestEmail } from "@/lib/resend/domain.functions";
 
@@ -41,6 +41,10 @@ function ProfilePage() {
         bcc_enabled: profile.bcc_enabled,
         negotiation_allowed: profile.negotiation_allowed,
         delai_facturation_jours: profile.delai_facturation_jours,
+        iban: profile.iban,
+        bic: profile.bic,
+        bank_holder: profile.bank_holder,
+        payment_link: profile.payment_link,
       });
     }
   }, [profile]);
@@ -66,6 +70,10 @@ function ProfilePage() {
           bcc_enabled: form.bcc_enabled,
           negotiation_allowed: form.negotiation_allowed,
           delai_facturation_jours: form.delai_facturation_jours,
+          iban: form.iban ?? undefined,
+          bic: form.bic ?? undefined,
+          bank_holder: form.bank_holder ?? undefined,
+          payment_link: form.payment_link ?? undefined,
         },
       });
       setSaved(true);
@@ -277,6 +285,62 @@ function ProfilePage() {
               </ol>
             </div>
           )}
+        </section>
+
+        {/* Bloc Coordonnées de paiement */}
+        <section className="bg-white border border-border rounded-xl p-6">
+          <h2 className="text-base font-medium text-[var(--navy)] flex items-center gap-2 mb-1">
+            <CreditCard className="h-4 w-4" /> Coordonnées de paiement
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Ces informations sont automatiquement ajoutées aux relances pour faciliter le règlement.
+            Renseignez au moins un moyen (IBAN ou lien de paiement).
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Titulaire du compte" hint="Nom affiché sur le RIB">
+              <input
+                type="text"
+                value={form.bank_holder ?? ""}
+                onChange={(e) => update("bank_holder", e.target.value)}
+                placeholder="Ex: SAS Syndes Solutions"
+                className="input"
+              />
+            </Field>
+            <Field label="BIC / SWIFT">
+              <input
+                type="text"
+                value={form.bic ?? ""}
+                onChange={(e) => update("bic", e.target.value.toUpperCase())}
+                placeholder="Ex: BNPAFRPP"
+                className="input font-mono"
+              />
+            </Field>
+            <div className="md:col-span-2">
+              <Field label="IBAN" hint="Format FR / international">
+                <input
+                  type="text"
+                  value={form.iban ?? ""}
+                  onChange={(e) => update("iban", e.target.value.toUpperCase())}
+                  placeholder="Ex: FR76 1234 5678 9012 3456 7890 123"
+                  className="input font-mono"
+                />
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field
+                label="Lien de paiement"
+                hint="Pennylane, Stripe, GoCardless, etc."
+              >
+                <input
+                  type="url"
+                  value={form.payment_link ?? ""}
+                  onChange={(e) => update("payment_link", e.target.value)}
+                  placeholder="https://pay.pennylane.com/..."
+                  className="input"
+                />
+              </Field>
+            </div>
+          </div>
         </section>
 
         {/* Bloc Préférences */}

@@ -69,6 +69,8 @@ Petit rappel cordial : la facture {numero_facture} de {montant} arrive à éché
 
 Si tout est en ordre de votre côté, vous pouvez ignorer ce message. Dans le cas contraire, n'hésitez pas à me revenir avant cette date.
 
+{coordonnees_paiement}
+
 Bien à vous,
 {signature}`,
   },
@@ -83,7 +85,9 @@ Bien à vous,
 
 La facture {numero_facture} de {montant} est arrivée à échéance le {date_echeance}. Je n'ai pas encore vu passer le règlement.
 
-Sans doute un oubli — pouvez-vous me confirmer la date prévue du virement ?
+Sans doute un oubli — pouvez-vous me confirmer la date prévue du virement, idéalement avant le {date_limite_5j} ?
+
+{coordonnees_paiement}
 
 Merci d'avance,
 {signature}`,
@@ -99,9 +103,11 @@ Merci d'avance,
 
 La facture {numero_facture} de {montant} accuse {jours_retard} jours de retard. Je n'ai toujours pas de retour de votre part.
 
-Pour avancer rapidement, pourriez-vous me préciser sous 48h :
+Pour avancer rapidement, pourriez-vous me préciser avant le {date_limite_48h} :
   • la date de virement prévue, ou
   • un motif éventuel (litige, document manquant) ?
+
+{coordonnees_paiement}
 
 À défaut de réponse, je serai amené à appliquer les pénalités de retard prévues par la loi (article L.441-10 du Code de commerce).
 
@@ -123,6 +129,8 @@ Pour rappel, la facture {numero_facture} d'un montant de {montant} arrive à éc
 
 Merci de bien vouloir confirmer la date prévue de règlement ou, le cas échéant, de me signaler toute difficulté en amont.
 
+{coordonnees_paiement}
+
 Cordialement,
 {signature}`,
   },
@@ -137,9 +145,11 @@ Cordialement,
 
 La facture {numero_facture} de {montant}, échue depuis le {date_echeance} ({jours_retard} jours), est aujourd'hui en retard.
 
-Merci de me communiquer sous 48h :
+Merci de me communiquer avant le {date_limite_48h} :
   • la date exacte du virement, ou
   • une proposition d'acompte en cas de difficulté de trésorerie.
+
+{coordonnees_paiement}
 
 Cordialement,
 {signature}`,
@@ -155,9 +165,11 @@ Cordialement,
 
 Malgré mes relances, la facture {numero_facture} de {montant} reste impayée à ce jour ({jours_retard} jours de retard).
 
-Sans règlement intégral ou proposition d'échéancier sous 5 jours ouvrés, je serai contraint :
+Sans règlement intégral ou proposition d'échéancier avant le {date_limite_5j}, je serai contraint :
   • d'appliquer les pénalités de retard (taux légal BtoB) et l'indemnité forfaitaire de 40 €,
   • d'engager une procédure de recouvrement formalisée.
+
+{coordonnees_paiement}
 
 Je reste à votre disposition pour échanger sur une solution amiable.
 
@@ -179,6 +191,8 @@ Compte tenu de notre historique commercial, je vous prie de bien vouloir me conf
 
 Si un acompte de 30 % minimum ne peut être versé à l'échéance, merci de me proposer un échéancier formalisé avant cette date.
 
+{coordonnees_paiement}
+
 Cordialement,
 {signature}`,
   },
@@ -193,9 +207,11 @@ Cordialement,
 
 La facture {numero_facture} de {montant} est échue depuis {jours_retard} jours et reste impayée.
 
-Je vous demande sous 48h :
+Je vous demande avant le {date_limite_48h} :
   • le règlement intégral, ou
   • une proposition d'échéancier avec acompte initial de 30 % minimum.
+
+{coordonnees_paiement}
 
 Sans réponse, le dossier sera transféré en recouvrement formalisé avec pénalités et indemnité forfaitaire de 40 €.
 
@@ -213,10 +229,12 @@ Cordialement,
 
 Ceci est ma dernière relance amiable concernant la facture {numero_facture} d'un montant de {montant} ({jours_retard} jours de retard).
 
-Sans règlement sous 5 jours, le dossier sera transmis pour :
+Sans règlement avant le {date_limite_5j}, le dossier sera transmis pour :
   • mise en demeure formelle,
   • engagement d'une procédure de recouvrement (injonction de payer ou assignation),
   • application des pénalités et frais de recouvrement.
+
+{coordonnees_paiement}
 
 Je préfère trouver une solution amiable — répondez-moi pour échanger.
 
@@ -238,7 +256,7 @@ Compte tenu du retard accumulé sur la facture {numero_facture} ({montant}, {jou
   • solde réparti sur 3 à 6 mensualités,
   • formalisation par accord écrit.
 
-Confirmez-moi votre intérêt sous 48h. À défaut, le dossier passera en phase formelle.
+Confirmez-moi votre intérêt avant le {date_limite_48h}. À défaut, le dossier passera en phase formelle.
 
 Cordialement,
 {signature}`,
@@ -300,12 +318,41 @@ export type TemplateVars = {
   entreprise_client?: string;
   alias_name?: string;
   alias_email?: string;
+  // Coordonnées de paiement du créancier (injectées dans le bloc {coordonnees_paiement})
+  iban?: string;
+  bic?: string;
+  bank_holder?: string;
+  payment_link?: string;
 };
 
 const formatEuro = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
+
+/**
+ * Ajoute N jours ouvrés à une date (skip samedi/dimanche).
+ * Pour les jours fériés on délègue au caller — ici on garde simple/synchrone.
+ */
+function addBusinessDays(start: Date, days: number): Date {
+  const d = new Date(start);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) added++;
+  }
+  return d;
+}
+
+/** Format "vendredi 17 juin" — verbeux, plus chaleureux qu'une date pure. */
+function formatRelativeDate(d: Date): string {
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
 
 function buildSignature(vars: TemplateVars): string {
   const name = vars.alias_name?.trim();
@@ -316,10 +363,39 @@ function buildSignature(vars: TemplateVars): string {
   return "L'équipe Oraya";
 }
 
+/**
+ * Construit le bloc des coordonnées de paiement à insérer dans le mail.
+ * Retourne une chaîne vide si rien n'est configuré (le template doit gérer la pré-ligne).
+ */
+function buildPaymentBlock(vars: TemplateVars): string {
+  const lines: string[] = [];
+  if (vars.payment_link) {
+    lines.push(`💳 Payer en ligne : ${vars.payment_link}`);
+  }
+  if (vars.iban) {
+    const ibanFormatted = vars.iban.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
+    lines.push(`Virement bancaire :`);
+    if (vars.bank_holder) lines.push(`  Bénéficiaire : ${vars.bank_holder}`);
+    lines.push(`  IBAN : ${ibanFormatted}`);
+    if (vars.bic) lines.push(`  BIC : ${vars.bic}`);
+  }
+  return lines.join("\n");
+}
+
 /** Substitue les variables {xxx} dans un template subject/body. */
 export function renderTemplate(code: TemplateCode, vars: TemplateVars): { subject: string; body: string } {
   const t = TEMPLATES[code];
   if (!t) throw new Error(`Template inconnu : ${code}`);
+
+  // Dates limites calculées à partir d'aujourd'hui — donne une vraie date plutôt
+  // qu'un "sous N jours" relatif que le destinataire doit calculer.
+  const today = new Date();
+  const date48h = formatRelativeDate(addBusinessDays(today, 2));
+  const date5j = formatRelativeDate(addBusinessDays(today, 5));
+  const date5jCal = formatRelativeDate(new Date(today.getTime() + 5 * 86400000));
+  const date3jCal = formatRelativeDate(new Date(today.getTime() + 3 * 86400000));
+
+  const paymentBlock = buildPaymentBlock(vars);
 
   const map: Record<string, string> = {
     prenom: vars.prenom?.trim() || "",
@@ -331,6 +407,13 @@ export function renderTemplate(code: TemplateCode, vars: TemplateVars): { subjec
     jours_retard: vars.jours_retard !== undefined ? String(vars.jours_retard) : "",
     entreprise_client: vars.entreprise_client || "",
     signature: buildSignature(vars),
+    // Dates limites (déjà calculées en absolu)
+    date_limite_48h: date48h,         // "mercredi 14 juin" (today + 2j ouvrés)
+    date_limite_5j: date5j,           // "vendredi 17 juin" (today + 5j ouvrés)
+    date_limite_5j_cal: date5jCal,    // "samedi 17 juin"   (today + 5j calendaires)
+    date_limite_3j_cal: date3jCal,    // "samedi 15 juin"   (today + 3j calendaires)
+    // Bloc paiement formaté (vide si rien configuré)
+    coordonnees_paiement: paymentBlock,
   };
 
   const substitute = (input: string) =>

@@ -21,6 +21,11 @@ export type ClientProfile = {
   onboarding_status: string | null;
   resend_domain_id: string | null;
   resend_domain_status: string | null;
+  // Coordonnées de paiement injectées dans les relances
+  iban: string | null;
+  bic: string | null;
+  bank_holder: string | null;       // Nom du titulaire du compte
+  payment_link: string | null;      // Lien Pennylane / Stripe / autre
 };
 
 /** Récupère le profil du client connecté */
@@ -28,13 +33,16 @@ export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .handler(async ({ context }): Promise<ClientProfile | null> => {
     const { userId } = context;
-    const { data, error } = await supabaseAdmin
+    // Cast en any car les colonnes iban/bic/bank_holder/payment_link ne sont pas encore
+    // dans les types Supabase générés (à régénérer après la migration SQL).
+    const { data, error } = (await supabaseAdmin
       .from("clients")
       .select(
-        "id, company_name, contact_name, contact_email, contact_phone, siren, ca_annuel, email_alias, email_alias_name, bcc_enabled, negotiation_allowed, delai_facturation_jours, plan_type, onboarding_status, resend_domain_id, resend_domain_status",
+        "id, company_name, contact_name, contact_email, contact_phone, siren, ca_annuel, email_alias, email_alias_name, bcc_enabled, negotiation_allowed, delai_facturation_jours, plan_type, onboarding_status, resend_domain_id, resend_domain_status, iban, bic, bank_holder, payment_link" as unknown as "id",
       )
       .eq("user_id", userId)
-      .maybeSingle();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .maybeSingle()) as { data: any; error: { message: string } | null };
     if (error) throw new Error(error.message);
     return data as ClientProfile | null;
   });
@@ -55,6 +63,12 @@ export const updateMyProfile = createServerFn({ method: "POST" })
         bcc_enabled: z.boolean().optional(),
         negotiation_allowed: z.boolean().optional(),
         delai_facturation_jours: z.number().int().min(0).max(180).optional(),
+        // Coordonnées paiement (validation souple — pas de regex IBAN stricte
+        // pour ne pas bloquer en cas d'espaces / différents formats)
+        iban: z.string().max(50).optional().or(z.literal("")),
+        bic: z.string().max(20).optional().or(z.literal("")),
+        bank_holder: z.string().max(200).optional().or(z.literal("")),
+        payment_link: z.string().url().max(500).optional().or(z.literal("")),
       })
       .parse(input),
   )

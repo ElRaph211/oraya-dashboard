@@ -115,10 +115,10 @@ export async function enqueueDueRelances(): Promise<EnqueueRelancesResult> {
         continue;
       }
 
-      // Récupère le client (alias email, délai facturation)
+      // Récupère le client (alias email, délai facturation, coordonnées paiement)
       const { data: client } = await supabaseAdmin
         .from("clients")
-        .select("email_alias, email_alias_name, delai_facturation_jours, bcc_enabled, contact_email, company_name")
+        .select("email_alias, email_alias_name, delai_facturation_jours, bcc_enabled, contact_email, company_name, iban, bic, bank_holder, payment_link")
         .eq("id", debtor.client_id)
         .maybeSingle();
 
@@ -164,6 +164,10 @@ export async function enqueueDueRelances(): Promise<EnqueueRelancesResult> {
         alias_name: client.email_alias_name ?? client.company_name ?? undefined,
         // Signature = vrai email du créancier (pour que le débiteur le contacte direct)
         alias_email: client.contact_email ?? undefined,
+        iban: client.iban ?? undefined,
+        bic: client.bic ?? undefined,
+        bank_holder: client.bank_holder ?? undefined,
+        payment_link: client.payment_link ?? undefined,
       });
 
       // Si débiteur stratégique → status pending_approval, sinon draft pour envoi auto

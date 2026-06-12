@@ -51,6 +51,10 @@ export const previewRelanceFromInvoice = createServerFn({ method: "GET" })
       // Signature = vrai email du créancier (pas l'alias Oraya) pour que le
       // débiteur puisse le contacter directement.
       alias_email: client.contact_email ?? undefined,
+      iban: client.iban ?? undefined,
+      bic: client.bic ?? undefined,
+      bank_holder: client.bank_holder ?? undefined,
+      payment_link: client.payment_link ?? undefined,
     });
 
     return {
@@ -233,11 +237,11 @@ async function loadInvoiceContext(ctx: { userId: string }, invoiceId: string) {
 
   const effectiveClientId = (invoice.client_id as string) ?? clientId;
 
-  // Charge le client (alias, BCC, etc.)
+  // Charge le client (alias, BCC, coordonnées paiement, etc.)
   const { data: client } = await supabaseAdmin
     .from("clients")
     .select(
-      "id, company_name, contact_email, email_alias, email_alias_name, bcc_enabled, delai_facturation_jours",
+      "id, company_name, contact_email, email_alias, email_alias_name, bcc_enabled, delai_facturation_jours, iban, bic, bank_holder, payment_link",
     )
     .eq("id", effectiveClientId)
     .single();
