@@ -77,7 +77,6 @@
     "recharts": "^2.15.4",
     "resend": "^6.12.4",
     "sonner": "^2.0.7",
-    "stripe": "^22.2.0",
     "svix": "^1.95.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",

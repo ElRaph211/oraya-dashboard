@@ -82,8 +82,6 @@ export type AdminClientRow = {
   avg_dso_days: number | null;
   last_activity_at: string | null;
   silent_days: number | null;
-  subscription_status: string | null;
-  current_period_end: string | null;
 };
 
 export const getAdminClients = createServerFn({ method: "GET" })
@@ -91,17 +89,13 @@ export const getAdminClients = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<AdminClientRow[]> => {
     await requireAdmin(context.userId);
 
-    // Cast en any car les colonnes Stripe (subscription_status, current_period_end)
-    // ne sont pas encore dans les types Supabase générés
-    const { data: clients, error } = (await supabaseAdmin
+    const { data: clients, error } = await supabaseAdmin
       .from("clients")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .select(
-        "id, company_name, contact_email, plan_type, onboarding_status, created_at, updated_at, ca_annuel, subscription_status, current_period_end" as any,
+        "id, company_name, contact_email, plan_type, onboarding_status, created_at, updated_at, ca_annuel",
       )
       .is("deleted_at", null)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .order("created_at", { ascending: false })) as any;
+      .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
     const now = Date.now();
@@ -154,10 +148,6 @@ export const getAdminClients = createServerFn({ method: "GET" })
         avg_dso_days: avgDso,
         last_activity_at: lastActivity,
         silent_days: silentDays,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        subscription_status: (c as any).subscription_status ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        current_period_end: (c as any).current_period_end ?? null,
       });
     }
 

@@ -65,7 +65,7 @@ function AdminClientsPage() {
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground bg-[var(--surface-soft)]">
                 <th className="px-5 py-3 font-medium">Société</th>
-                <th className="px-5 py-3 font-medium">Abonnement</th>
+                <th className="px-5 py-3 font-medium">Plan</th>
                 <th className="px-5 py-3 font-medium">Onboarding</th>
                 <th className="px-5 py-3 font-medium">Activation</th>
                 <th className="px-5 py-3 font-medium text-right">Encours</th>
@@ -118,11 +118,9 @@ function ClientRow({ row }: { row: AdminClientRow }) {
         <div className="text-xs text-muted-foreground">{row.contact_email}</div>
       </td>
       <td className="px-5 py-3">
-        <SubscriptionBadge
-          status={row.subscription_status}
-          plan={row.plan_type}
-          periodEnd={row.current_period_end}
-        />
+        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+          {PLAN_LABELS[row.plan_type ?? ""] ?? row.plan_type ?? "—"}
+        </span>
       </td>
       <td className="px-5 py-3">
         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${onboardingColors[row.onboarding_status ?? ""] ?? "bg-gray-100 text-gray-700"}`}>
@@ -163,51 +161,3 @@ const PLAN_LABELS: Record<string, string> = {
   audit: "Audit",
 };
 
-const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
-  active: "Actif",
-  trialing: "Essai",
-  past_due: "En retard",
-  canceled: "Annulé",
-  unpaid: "Impayé",
-  paused: "En pause",
-  inactive: "Inactif",
-};
-
-const SUBSCRIPTION_STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-100 text-green-800 border-green-200",
-  trialing: "bg-violet-100 text-violet-800 border-violet-200",
-  past_due: "bg-amber-100 text-amber-800 border-amber-200",
-  canceled: "bg-red-100 text-red-800 border-red-200",
-  unpaid: "bg-red-100 text-red-800 border-red-200",
-  paused: "bg-slate-100 text-slate-700 border-slate-200",
-  inactive: "bg-gray-100 text-gray-600 border-gray-200",
-};
-
-function SubscriptionBadge({
-  status,
-  plan,
-  periodEnd,
-}: {
-  status: string | null;
-  plan: string | null;
-  periodEnd: string | null;
-}) {
-  const s = status ?? "inactive";
-  const colorClass = SUBSCRIPTION_STATUS_COLORS[s] ?? SUBSCRIPTION_STATUS_COLORS.inactive;
-  const label = SUBSCRIPTION_STATUS_LABELS[s] ?? s;
-  const planLabel = plan ? PLAN_LABELS[plan] ?? plan : "—";
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className={`inline-flex w-fit px-2 py-0.5 rounded text-xs font-medium border ${colorClass}`}>
-        {label}
-      </span>
-      <span className="text-xs text-muted-foreground">
-        {planLabel}
-        {periodEnd && s === "active" && (
-          <span className="ml-1">· jusqu'au {new Date(periodEnd).toLocaleDateString("fr-FR")}</span>
-        )}
-      </span>
-    </div>
-  );
-}

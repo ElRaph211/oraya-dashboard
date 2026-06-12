@@ -69,11 +69,6 @@ export async function handleApiRoute(request: Request): Promise<Response | null>
     return handleEnqueueRelances(request);
   }
 
-  // -- Webhook Stripe -------------------------------------------------------
-  if (path === "/api/webhooks/stripe" && request.method === "POST") {
-    return handleStripeWebhookRoute(request);
-  }
-
   // -- Health check ---------------------------------------------------------
   if (path === "/api/health" && request.method === "GET") {
     return jsonResponse({ ok: true, ts: new Date().toISOString() });
@@ -256,27 +251,6 @@ async function handleResendEvents(request: Request): Promise<Response> {
   }
 
   return jsonResponse({ ok: true });
-}
-
-// ---------------------------------------------------------------------------
-async function handleStripeWebhookRoute(request: Request): Promise<Response> {
-  const signature = request.headers.get("stripe-signature");
-  if (!signature) {
-    return jsonResponse({ error: "Missing stripe-signature header" }, 400);
-  }
-  // IMPORTANT : on lit le body en raw (text), pas en JSON, pour que la signature
-  // Stripe puisse être vérifiée bit-à-bit.
-  const rawBody = await request.text();
-
-  try {
-    const { handleStripeWebhook } = await import("@/lib/stripe/webhook");
-    const result = await handleStripeWebhook(rawBody, signature);
-    return jsonResponse(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur webhook Stripe";
-    console.error("[stripe-webhook] error", err);
-    return jsonResponse({ error: message }, message === "Signature invalide" ? 400 : 500);
-  }
 }
 
 // ---------------------------------------------------------------------------
