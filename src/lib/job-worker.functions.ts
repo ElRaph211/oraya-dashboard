@@ -106,15 +106,57 @@ Catégories possibles :
 
 export type ProcessJobQueueResult = { ok: true; processed: number; errors: number };
 
-/** Logique core — appelable depuis un handler de route sans passer par TanStack Start */
-export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueResult> {
-  const { data: jobs } = await supabaseAdmin
-    .from("job_queue")
-    .select("*")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(limit);
+/**
+ * Indique si l'erreur est transitoire — on retente plutôt que de marquer failed.
+ *   - 429 rate limit
+ *   - 5xx serveur
+ *   - timeout / network
+ */
+function isTransientError(e: unknown): boolean {
+  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("rate limit") ||
+    msg.includes("timeout") ||
+    msg.includes("network") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    /\b5\d{2}\b/.test(msg)
+  );
+}
 
+const MAX_ATTEMPTS = 3;
+
+/**
+ * Logique core — appelable depuis un handler de route sans passer par TanStack Start.
+ *
+ * Le claim des jobs est ATOMIQUE via la RPC `claim_jobs` (FOR UPDATE SKIP LOCKED).
+ * Tue le bug du double envoi sur concurrence cron + bouton manuel.
+ *
+ * Au début de chaque tick : reap les jobs bloqués en `processing` depuis > 15 min
+ * (process Railway crashé, OOM, etc.) — sinon ils restent éternellement coincés.
+ */
+export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueResult> {
+  // 1) Réparation : remettre en pending les jobs processing trop vieux
+  try {
+    const { data: reaped } = await supabaseAdmin.rpc("reap_stuck_jobs", {
+      p_timeout_minutes: 15,
+    });
+    if (reaped && reaped > 0) {
+      console.warn(`[job-worker] reaped ${reaped} stuck jobs`);
+    }
+  } catch (e) {
+    console.error("[job-worker] reaper RPC failed", e);
+  }
+
+  // 2) Claim atomique d'un batch
+  const { data: jobs, error: claimErr } = await supabaseAdmin.rpc("claim_jobs", {
+    p_limit: limit,
+  });
+  if (claimErr) {
+    console.error("[job-worker] claim_jobs failed", claimErr);
+    return { ok: true, processed: 0, errors: 0 };
+  }
   if (!jobs || jobs.length === 0) return { ok: true, processed: 0, errors: 0 };
 
   let processed = 0;
@@ -122,11 +164,6 @@ export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueRe
 
   for (const job of jobs) {
     try {
-      await supabaseAdmin
-        .from("job_queue")
-        .update({ status: "processing" })
-        .eq("id", job.id);
-
       if (job.job_type === "classify_response") {
         await handleClassifyResponse(job);
       } else if (job.job_type === "send_relance") {
@@ -142,18 +179,37 @@ export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueRe
 
       await supabaseAdmin
         .from("job_queue")
-        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          claimed_at: null,
+        })
         .eq("id", job.id);
       processed++;
     } catch (e) {
       errors++;
+      const transient = isTransientError(e);
+      // Retry si transient et qu'on n'a pas atteint le plafond. claim_jobs
+      // incrémente déjà attempts (donc job.attempts reflète CE tour-ci).
+      const shouldRetry = transient && job.attempts < MAX_ATTEMPTS;
       await supabaseAdmin
         .from("job_queue")
         .update({
-          status: "failed",
+          status: shouldRetry ? "pending" : "failed",
+          claimed_at: null,
           error_message: e instanceof Error ? e.message : String(e),
         })
         .eq("id", job.id);
+      if (shouldRetry) {
+        console.warn(
+          `[job-worker] job ${job.id} (${job.job_type}) transient error, will retry (attempt ${job.attempts}/${MAX_ATTEMPTS})`,
+        );
+      } else {
+        console.error(
+          `[job-worker] job ${job.id} (${job.job_type}) FAILED definitively after ${job.attempts} attempts`,
+          e,
+        );
+      }
     }
   }
 
@@ -239,16 +295,19 @@ async function handleSendRelance(job: {
       })
       .eq("id", relance.id);
 
-    // Met à jour le compteur du débiteur + last_relance_at
-    await supabaseAdmin
-      .from("debtors")
-      .update({
-        last_relance_at: new Date().toISOString(),
-        relance_count: (relance.sequence_step ?? 0) + 1,
-      })
-      .eq("id", job.debtor_id);
+    // Incrément ATOMIQUE du compteur (RPC) — évite l'écrasement sur concurrence.
+    // Met aussi à jour last_relance_at via le même UPDATE.
+    await supabaseAdmin.rpc("increment_debtor_relance_count", {
+      p_debtor_id: job.debtor_id,
+    });
   } catch (e) {
-    await supabaseAdmin.from("relances_queue").update({ status: "bounced" }).eq("id", relance.id);
+    // Si transient (429/5xx), on remet en draft pour que le retry du worker
+    // puisse re-tenter sans tout casser. Sinon → bounced.
+    const transient = isTransientError(e);
+    await supabaseAdmin
+      .from("relances_queue")
+      .update({ status: transient ? "draft" : "bounced" })
+      .eq("id", relance.id);
     throw e;
   }
 }

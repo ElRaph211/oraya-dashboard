@@ -84,7 +84,10 @@ export async function enqueueDueRelances(): Promise<EnqueueRelancesResult> {
         continue;
       }
 
-      // Skip si déjà un job pending pour ce débiteur
+      // Note : la dédup réelle est faite par l'index unique partiel
+      // job_queue_unique_pending_per_debtor_idx (cf migration 20260617).
+      // Ce SELECT garde une vérif côté code pour éviter le bruit de logs,
+      // mais l'INSERT plus bas est protégé par ON CONFLICT DO NOTHING.
       const { data: existingJob } = await supabaseAdmin
         .from("job_queue")
         .select("id")
