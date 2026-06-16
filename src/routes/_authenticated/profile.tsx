@@ -2,9 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Settings, Check, Loader2, Mail, ShieldCheck, AlertCircle, RefreshCw, Send, CreditCard } from "lucide-react";
+import { Settings, Check, Loader2, Mail, ShieldCheck, AlertCircle, RefreshCw, Send, CreditCard, Plug, Unplug } from "lucide-react";
 import { getMyProfile, updateMyProfile, type ClientProfile } from "@/lib/profile.functions";
 import { checkResendDomainStatus, sendTestEmail } from "@/lib/resend/domain.functions";
+import {
+  connectPennylane,
+  disconnectPennylane,
+  getPennylaneStatus,
+  triggerPennylaneSync,
+  type PennylaneStatus,
+} from "@/lib/pennylane/functions";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({ meta: [{ title: "Profil — Oraya" }] }),
@@ -343,6 +350,9 @@ function ProfilePage() {
           </div>
         </section>
 
+        {/* Bloc Intégrations */}
+        <PennylaneSection />
+
         {/* Bloc Préférences */}
         <section className="bg-white border border-border rounded-xl p-6">
           <h2 className="text-base font-medium text-[var(--navy)] mb-4">Préférences relances</h2>
@@ -420,5 +430,247 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </label>
       {children}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Pennylane — section Connectivité                                          */
+/* -------------------------------------------------------------------------- */
+
+function PennylaneSection() {
+  const qc = useQueryClient();
+  const fetchStatus = useServerFn(getPennylaneStatus);
+  const connectFn = useServerFn(connectPennylane);
+  const disconnectFn = useServerFn(disconnectPennylane);
+  const triggerFn = useServerFn(triggerPennylaneSync);
+
+  const { data: status, isLoading } = useQuery<PennylaneStatus>({
+    queryKey: ["pennylane-status"],
+    queryFn: () => fetchStatus(),
+    refetchInterval: (q) =>
+      (q.state.data?.sync_status === "syncing" ? 5000 : false),
+  });
+
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
+
+  async function handleConnect() {
+    if (!token.trim()) {
+      setFeedback({ type: "err", msg: "Renseigne ton token API Pennylane." });
+      return;
+    }
+    setBusy("connect");
+    setFeedback(null);
+    try {
+      const res = await connectFn({ data: { token: token.trim() } });
+      setFeedback({ type: "ok", msg: res.message ?? "Connexion réussie." });
+      setToken("");
+      await qc.invalidateQueries({ queryKey: ["pennylane-status"] });
+    } catch (e) {
+      setFeedback({
+        type: "err",
+        msg: e instanceof Error ? e.message : "Erreur de connexion",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!confirm("Déconnecter Pennylane ?\nLes données déjà synchronisées sont conservées.")) return;
+    setBusy("disconnect");
+    setFeedback(null);
+    try {
+      await disconnectFn();
+      setFeedback({ type: "ok", msg: "Pennylane déconnecté." });
+      await qc.invalidateQueries({ queryKey: ["pennylane-status"] });
+    } catch (e) {
+      setFeedback({
+        type: "err",
+        msg: e instanceof Error ? e.message : "Erreur de déconnexion",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSync() {
+    setBusy("sync");
+    setFeedback(null);
+    try {
+      const res = await triggerFn();
+      setFeedback({ type: "ok", msg: res.message ?? "Synchronisation planifiée." });
+      await qc.invalidateQueries({ queryKey: ["pennylane-status"] });
+    } catch (e) {
+      setFeedback({
+        type: "err",
+        msg: e instanceof Error ? e.message : "Erreur synchro",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <section className="bg-white border border-border rounded-xl p-6 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" />
+        Chargement…
+      </section>
+    );
+  }
+
+  const connected = !!status?.enabled;
+  const syncing = status?.sync_status === "syncing";
+
+  return (
+    <section className="bg-white border border-border rounded-xl p-6">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h2 className="text-base font-medium text-[var(--navy)] flex items-center gap-2">
+            <Plug className="h-4 w-4" /> Pennylane
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Synchronisation automatique de vos factures et clients depuis Pennylane.
+          </p>
+        </div>
+        {connected ? (
+          <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-800 border border-green-200 px-2 py-1 rounded-full">
+            <ShieldCheck className="h-3 w-3" /> Connecté
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-xs bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-full">
+            Non connecté
+          </span>
+        )}
+      </div>
+
+      {!connected ? (
+        <div className="space-y-3">
+          <Field
+            label="Token API Pennylane"
+            hint="Paramètres > Connectivité > Développeurs"
+          >
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Bearer token (commence souvent par 'plyk_')"
+              className="input font-mono"
+            />
+          </Field>
+          <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-xs text-blue-900 space-y-1">
+            <p className="font-medium">Scopes requis :</p>
+            <ul className="list-disc list-inside ml-1">
+              <li>customer_invoices:readonly</li>
+              <li>customers:readonly</li>
+            </ul>
+            <p className="mt-2 flex items-start gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+              <span>Nécessite un abonnement Pennylane Essentiel ou supérieur.</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={busy === "connect" || !token.trim()}
+            className="inline-flex items-center gap-2 bg-[var(--highlight)] text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-[#1A6FD8] transition disabled:opacity-40"
+          >
+            {busy === "connect" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plug className="h-4 w-4" />
+            )}
+            Connecter Pennylane
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <div className="text-muted-foreground uppercase tracking-wide">Statut</div>
+              <div className="mt-1 font-medium text-[var(--navy)]">
+                {syncing && (
+                  <span className="inline-flex items-center gap-1 text-blue-700">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Synchronisation…
+                  </span>
+                )}
+                {status?.sync_status === "success" && (
+                  <span className="text-green-700">Synchronisé</span>
+                )}
+                {status?.sync_status === "error" && (
+                  <span className="text-red-700">Erreur</span>
+                )}
+                {status?.sync_status === "idle" && (
+                  <span className="text-muted-foreground">En attente</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground uppercase tracking-wide">Dernière sync</div>
+              <div className="mt-1 font-medium text-[var(--navy)]">
+                {status?.last_sync
+                  ? new Date(status.last_sync).toLocaleString("fr-FR", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "—"}
+              </div>
+            </div>
+          </div>
+
+          {status?.last_error && (
+            <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2 text-xs text-red-900">
+              <div className="font-medium mb-1">Dernière erreur :</div>
+              <div className="font-mono break-all">{status.last_error}</div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={busy === "sync" || syncing}
+              className="inline-flex items-center gap-2 text-xs px-3 py-2 border border-border rounded-md hover:bg-[var(--surface-soft)] transition disabled:opacity-40"
+            >
+              {busy === "sync" || syncing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              Synchroniser maintenant
+            </button>
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={busy === "disconnect"}
+              className="inline-flex items-center gap-2 text-xs px-3 py-2 text-muted-foreground hover:text-red-700 transition disabled:opacity-40"
+            >
+              {busy === "disconnect" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Unplug className="h-3 w-3" />
+              )}
+              Déconnecter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {feedback && (
+        <div
+          className={`mt-3 text-xs rounded-md px-3 py-2 ${
+            feedback.type === "ok"
+              ? "bg-green-50 border border-green-200 text-green-900"
+              : "bg-red-50 border border-red-200 text-red-900"
+          }`}
+        >
+          {feedback.msg}
+        </div>
+      )}
+    </section>
   );
 }

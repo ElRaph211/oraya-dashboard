@@ -68,6 +68,9 @@ export async function handleApiRoute(request: Request): Promise<Response | null>
   if (path === "/api/cron/enqueue-relances" && request.method === "GET") {
     return handleEnqueueRelances(request);
   }
+  if (path === "/api/cron/sync-pennylane" && request.method === "GET") {
+    return handleSyncPennylane(request);
+  }
 
   // -- Health check ---------------------------------------------------------
   if (path === "/api/health" && request.method === "GET") {
@@ -266,6 +269,62 @@ async function handleEnqueueRelances(request: Request): Promise<Response> {
   const { enqueueDueRelances } = await import("@/lib/relances/enqueue-relances");
   const result = await enqueueDueRelances();
   return jsonResponse(result);
+}
+
+// ---------------------------------------------------------------------------
+/**
+ * Cron Pennylane : enqueue un job sync_pennylane pour chaque client avec
+ * pennylane_integration_enabled=true. Le worker fait le sync delta.
+ * À programmer toutes les ~30 min via cron-job.org.
+ */
+async function handleSyncPennylane(request: Request): Promise<Response> {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (cronSecret) {
+    const auth = request.headers.get("authorization");
+    if (auth !== `Bearer ${cronSecret}`) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+  }
+
+  const { data: clients } = await supabaseAdmin
+    .from("clients")
+    .select("id")
+    .eq("pennylane_integration_enabled", true)
+    .is("deleted_at", null);
+
+  let enqueued = 0;
+  let skipped = 0;
+
+  for (const c of clients ?? []) {
+    // Skip s'il y a déjà un job pending/processing
+    const { data: existing } = await supabaseAdmin
+      .from("job_queue")
+      .select("id")
+      .eq("client_id", c.id)
+      .eq("job_type", "sync_pennylane")
+      .in("status", ["pending", "processing"])
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    await supabaseAdmin.from("job_queue").insert({
+      client_id: c.id,
+      job_type: "sync_pennylane",
+      status: "pending",
+      payload: { full_sync: false },
+    });
+    enqueued++;
+  }
+
+  return jsonResponse({
+    ok: true,
+    scanned: clients?.length ?? 0,
+    enqueued,
+    skipped,
+  });
 }
 
 // ---------------------------------------------------------------------------
