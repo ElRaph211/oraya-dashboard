@@ -131,6 +131,13 @@ export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueRe
         await handleClassifyResponse(job);
       } else if (job.job_type === "send_relance") {
         await handleSendRelance(job);
+      } else if (job.job_type === "sync_pennylane") {
+        const { syncPennylane } = await import("@/lib/pennylane/sync");
+        const fullSync = !!(job.payload && job.payload.full_sync);
+        const res = await syncPennylane(job.client_id, fullSync);
+        console.log(
+          `[job-worker] sync_pennylane client=${job.client_id} synced=${res.synced} errors=${res.errors}`,
+        );
       }
 
       await supabaseAdmin
