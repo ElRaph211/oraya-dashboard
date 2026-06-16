@@ -17,7 +17,15 @@ export interface SendEmailParams {
  */
 export async function sendEmail(params: SendEmailParams): Promise<{ id: string }> {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("[Resend] sendEmail ignoré — RESEND_API_KEY manquante", params.subject);
+    // En prod, on THROW — l'ancienne version retournait un faux ID ce qui
+    // laissait croire que l'email était parti alors que rien n'était envoyé.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "RESEND_API_KEY manquante en production — refus d'envoyer un email fantôme",
+      );
+    }
+    // Dev/test : on autorise le mock mais on log clairement.
+    console.warn("[Resend] DEV MOCK — RESEND_API_KEY manquante, email non envoyé", params.subject);
     return { id: "mock-no-api-key" };
   }
 

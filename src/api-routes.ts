@@ -104,6 +104,13 @@ async function handleResendInbound(request: Request): Promise<Response> {
       return jsonResponse({ error: "Invalid signature" }, 401);
     }
   } else {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[Resend Inbound] Aucun secret configuré en production");
+      return jsonResponse(
+        { error: "Service unavailable: inbound secret not configured" },
+        503,
+      );
+    }
     console.warn("[Resend Inbound] Aucun secret configuré — parsing JSON brut (dev uniquement)");
     try {
       event = (await request.json()) as ResendInboundEvent;
@@ -182,7 +189,7 @@ async function handleResendInbound(request: Request): Promise<Response> {
 
 // ---------------------------------------------------------------------------
 async function handleResendEvents(request: Request): Promise<Response> {
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET?.trim();
   let event: ResendEvent;
 
   if (webhookSecret) {
@@ -199,7 +206,16 @@ async function handleResendEvents(request: Request): Promise<Response> {
       return jsonResponse({ error: "Invalid signature" }, 401);
     }
   } else {
-    console.warn("[Resend Webhook] RESEND_WEBHOOK_SECRET non configuré");
+    // Fail-closed en prod : un attaquant pourrait forger des email.bounced
+    // pour marquer des relances comme bounced + déclencher des alertes arbitraires.
+    if (process.env.NODE_ENV === "production") {
+      console.error("[Resend Webhook] RESEND_WEBHOOK_SECRET non configuré en production");
+      return jsonResponse(
+        { error: "Service unavailable: webhook secret not configured" },
+        503,
+      );
+    }
+    console.warn("[Resend Webhook] RESEND_WEBHOOK_SECRET non configuré — mode dev");
     event = (await request.json()) as ResendEvent;
   }
 
@@ -259,7 +275,15 @@ async function handleResendEvents(request: Request): Promise<Response> {
 // ---------------------------------------------------------------------------
 async function handleEnqueueRelances(request: Request): Promise<Response> {
   const cronSecret = process.env.CRON_SECRET?.trim();
-  if (cronSecret) {
+  if (!cronSecret) {
+    // Fail-closed en prod : pas de secret → on refuse l'accès au lieu de l'autoriser.
+    if (process.env.NODE_ENV === "production") {
+      console.error("[cron] CRON_SECRET non configuré en production");
+      return jsonResponse({ error: "Service unavailable: CRON_SECRET not configured" }, 503);
+    }
+    // En dev, on log un warning et on laisse passer pour faciliter les tests.
+    console.warn("[cron] CRON_SECRET non configuré — mode dev, accès non protégé");
+  } else {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
       return jsonResponse({ error: "Unauthorized" }, 401);
@@ -279,7 +303,15 @@ async function handleEnqueueRelances(request: Request): Promise<Response> {
  */
 async function handleSyncPennylane(request: Request): Promise<Response> {
   const cronSecret = process.env.CRON_SECRET?.trim();
-  if (cronSecret) {
+  if (!cronSecret) {
+    // Fail-closed en prod : pas de secret → on refuse l'accès au lieu de l'autoriser.
+    if (process.env.NODE_ENV === "production") {
+      console.error("[cron] CRON_SECRET non configuré en production");
+      return jsonResponse({ error: "Service unavailable: CRON_SECRET not configured" }, 503);
+    }
+    // En dev, on log un warning et on laisse passer pour faciliter les tests.
+    console.warn("[cron] CRON_SECRET non configuré — mode dev, accès non protégé");
+  } else {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
       return jsonResponse({ error: "Unauthorized" }, 401);
@@ -330,7 +362,15 @@ async function handleSyncPennylane(request: Request): Promise<Response> {
 // ---------------------------------------------------------------------------
 async function handleProcessQueue(request: Request): Promise<Response> {
   const cronSecret = process.env.CRON_SECRET?.trim();
-  if (cronSecret) {
+  if (!cronSecret) {
+    // Fail-closed en prod : pas de secret → on refuse l'accès au lieu de l'autoriser.
+    if (process.env.NODE_ENV === "production") {
+      console.error("[cron] CRON_SECRET non configuré en production");
+      return jsonResponse({ error: "Service unavailable: CRON_SECRET not configured" }, 503);
+    }
+    // En dev, on log un warning et on laisse passer pour faciliter les tests.
+    console.warn("[cron] CRON_SECRET non configuré — mode dev, accès non protégé");
+  } else {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
       return jsonResponse({ error: "Unauthorized" }, 401);
@@ -345,7 +385,15 @@ async function handleProcessQueue(request: Request): Promise<Response> {
 // ---------------------------------------------------------------------------
 async function handleGenerateRecap(request: Request): Promise<Response> {
   const cronSecret = process.env.CRON_SECRET?.trim();
-  if (cronSecret) {
+  if (!cronSecret) {
+    // Fail-closed en prod : pas de secret → on refuse l'accès au lieu de l'autoriser.
+    if (process.env.NODE_ENV === "production") {
+      console.error("[cron] CRON_SECRET non configuré en production");
+      return jsonResponse({ error: "Service unavailable: CRON_SECRET not configured" }, 503);
+    }
+    // En dev, on log un warning et on laisse passer pour faciliter les tests.
+    console.warn("[cron] CRON_SECRET non configuré — mode dev, accès non protégé");
+  } else {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
       return jsonResponse({ error: "Unauthorized" }, 401);

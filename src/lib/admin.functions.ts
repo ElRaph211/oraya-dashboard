@@ -5,13 +5,16 @@ import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 /**
- * Idempotent admin bootstrap.
- * Reads ADMIN_EMAIL + ADMIN_PASSWORD from env and ensures:
- *  - the auth.users row exists (with raw_user_meta_data.role = "admin" so the
- *    handle_new_user trigger does NOT create a clients row)
- *  - the user_roles row with role='admin' exists
- * Safe to call repeatedly. Called from /login beforeLoad to guarantee the
- * admin is always available.
+ * Bootstrap idempotent de l'admin.
+ *
+ * 🔒 SÉCURITÉ :
+ *  - Refuse de créer un admin avec un mot de passe < 12 caractères
+ *  - En PRODUCTION : si l'admin existe déjà, on ne re-touche RIEN
+ *    (pas de re-création, pas de re-set du mot de passe)
+ *  - En DEV : on garde l'idempotence pour faciliter le setup
+ *
+ * Appelé depuis /login beforeLoad — l'objectif est de garantir que l'admin
+ * existe au premier setup. Une fois l'admin créé, ce bootstrap est un no-op.
  */
 export const bootstrapAdmin = createServerFn({ method: "POST" }).handler(async () => {
   const email = process.env.ADMIN_EMAIL;
@@ -20,37 +23,55 @@ export const bootstrapAdmin = createServerFn({ method: "POST" }).handler(async (
     return { ok: false, reason: "ADMIN_EMAIL or ADMIN_PASSWORD missing" };
   }
 
+  // Refuse les mots de passe faibles (en prod ET en dev pour éduquer)
+  if (password.length < 12) {
+    console.error(
+      `[bootstrapAdmin] REFUSED: ADMIN_PASSWORD trop court (${password.length} caractères, min 12 requis)`,
+    );
+    return {
+      ok: false,
+      reason: "ADMIN_PASSWORD trop faible (min 12 caractères)",
+    };
+  }
+
   const { data: existing, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
     perPage: 200,
   });
   if (listErr) return { ok: false, reason: listErr.message };
 
-  let userId = existing.users.find((u) => u.email?.toLowerCase() === email.toLowerCase())?.id;
+  const found = existing.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
 
-  if (!userId) {
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { role: "admin" },
-    });
-    if (createErr) return { ok: false, reason: createErr.message };
-    userId = created.user.id;
+  // Si l'admin existe déjà → no-op total. On ne re-set jamais le mot de passe.
+  if (found) {
+    // Garantir le rôle (cas de migration où le user existe mais pas le rôle)
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: found.id, role: "admin" }, { onConflict: "user_id,role" });
+    return { ok: true, action: "noop" };
   }
 
-  // Ensure user_roles has admin (idempotent)
+  // Création first-time
+  const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role: "admin" },
+  });
+  if (createErr) return { ok: false, reason: createErr.message };
+
   await supabaseAdmin
     .from("user_roles")
-    .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    .upsert({ user_id: created.user.id, role: "admin" }, { onConflict: "user_id,role" });
 
-  // If a client row was accidentally created, soft-delete it
+  // Si un client row a été créé par erreur, soft-delete
   await supabaseAdmin
     .from("clients")
     .update({ deleted_at: new Date().toISOString() })
-    .eq("user_id", userId)
+    .eq("user_id", created.user.id)
     .is("deleted_at", null);
 
-  return { ok: true };
+  console.log(`[bootstrapAdmin] Admin créé : ${email}`);
+  return { ok: true, action: "created" };
 });
 
 /**
