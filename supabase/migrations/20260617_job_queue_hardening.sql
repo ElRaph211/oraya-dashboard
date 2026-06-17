@@ -5,6 +5,8 @@
 -- On les recrée en CREATE TABLE IF NOT EXISTS pour ne pas casser le live.
 
 -- 1) job_queue
+-- CREATE pour les nouveaux projets ; ALTER pour les projets existants
+-- (la table était hors migrations, son schéma initial peut différer).
 CREATE TABLE IF NOT EXISTS job_queue (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id uuid REFERENCES clients(id) ON DELETE CASCADE,
@@ -22,6 +24,18 @@ CREATE TABLE IF NOT EXISTS job_queue (
   -- Pour le claim atomique : NULL quand pas claimé, sinon date du claim
   claimed_at timestamptz
 );
+
+-- Patch des colonnes manquantes pour les projets où job_queue existait déjà
+-- sans les colonnes du nouveau schéma (claim atomique + retry + reaper).
+ALTER TABLE job_queue
+  ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS debtor_id uuid REFERENCES debtors(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS payload jsonb,
+  ADD COLUMN IF NOT EXISTS error_message text,
+  ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS completed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS claimed_at timestamptz;
 
 -- Index pour la requête principale du worker (FIFO sur pending)
 CREATE INDEX IF NOT EXISTS job_queue_pending_fifo_idx
@@ -65,6 +79,13 @@ CREATE TABLE IF NOT EXISTS unmatched_emails (
   resolved_by uuid,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE unmatched_emails
+  ADD COLUMN IF NOT EXISTS email_from text,
+  ADD COLUMN IF NOT EXISTS email_subject text,
+  ADD COLUMN IF NOT EXISTS email_body text,
+  ADD COLUMN IF NOT EXISTS received_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS resolved_at timestamptz,
+  ADD COLUMN IF NOT EXISTS resolved_by uuid;
 CREATE INDEX IF NOT EXISTS unmatched_emails_received_idx
   ON unmatched_emails (received_at DESC);
 
