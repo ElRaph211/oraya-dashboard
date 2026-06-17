@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import DOMPurify from "dompurify";
 import { Send, Check, X, Eye, Loader2, Sparkles, Mail, AlertCircle, MailCheck, ArrowRight, Edit3 } from "lucide-react";
 import {
   getRelances,
@@ -341,19 +342,7 @@ function RelancesPage() {
       )}
 
       {/* Modal aperçu */}
-      {preview && (
-        <Modal onClose={() => setPreview(null)} title="Aperçu de la relance">
-          <div className="space-y-3 text-sm">
-            <div><span className="text-muted-foreground">À :</span> <strong>{preview.email_to}</strong></div>
-            <div><span className="text-muted-foreground">Objet :</span> <strong>{preview.email_subject}</strong></div>
-            <hr className="border-border" />
-            <div
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: preview.email_body ?? "" }}
-            />
-          </div>
-        </Modal>
-      )}
+      {preview && <PreviewModal preview={preview} onClose={() => setPreview(null)} />}
 
       {/* Modal édition */}
       {editing && (
@@ -427,6 +416,36 @@ function EmptyState({ onGenerate, busy }: { onGenerate: () => void; busy: boolea
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Modal d'aperçu — sanitize le body via DOMPurify pour neutraliser
+ * tout HTML injecté volontairement ou pas (un client mal intentionné
+ * pourrait éditer un email_body avec un <script>).
+ */
+function PreviewModal({ preview, onClose }: { preview: RelanceRow; onClose: () => void }) {
+  const safeHtml = useMemo(() => {
+    const raw = preview.email_body ?? "";
+    return DOMPurify.sanitize(raw, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ["script", "style", "iframe", "object", "embed"],
+      FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+    });
+  }, [preview.email_body]);
+
+  return (
+    <Modal onClose={onClose} title="Aperçu de la relance">
+      <div className="space-y-3 text-sm">
+        <div><span className="text-muted-foreground">À :</span> <strong>{preview.email_to}</strong></div>
+        <div><span className="text-muted-foreground">Objet :</span> <strong>{preview.email_subject}</strong></div>
+        <hr className="border-border" />
+        <div
+          className="prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
+        />
+      </div>
+    </Modal>
   );
 }
 
