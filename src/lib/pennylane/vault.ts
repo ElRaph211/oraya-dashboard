@@ -1,52 +1,73 @@
 /**
- * Helpers Supabase Vault pour stocker/lire le token Pennylane de chaque client.
+ * Stockage du token Pennylane par client.
  *
- * On expose 2 RPC SECURITY DEFINER côté DB (vault_upsert_secret, vault_read_secret)
- * que seul le service_role peut appeler. Voir migration SQL.
+ * Implémentation : colonne directe `clients.pennylane_token` (text).
+ * Le Vault Supabase n'est pas utilisable sur les projets Cloud sans
+ * configurer manuellement les permissions pgsodium (_crypto_aead_det_noncegen).
+ *
+ * Le token est stocké en clair côté DB — la protection vient des RLS et du
+ * fait que seul le service_role peut lire/écrire cette colonne. Si tu veux
+ * un chiffrement au repos, ré-active le Vault avec les bonnes permissions.
  */
 
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin as supabaseAdminTyped } from "@/integrations/supabase/client.server";
 
-/** Convention de nommage pour éviter les collisions entre clients. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabaseAdmin = supabaseAdminTyped as any;
+
+/**
+ * Nom historique conservé pour rétrocompat avec les anciennes lignes.
+ * Utilisé comme valeur sentinelle dans `pennylane_token_secret_name`.
+ */
 export function pennylaneSecretName(clientId: string): string {
   return `pennylane_token_${clientId}`;
 }
 
-/** Upsert un secret Pennylane pour un client donné. */
+/** Stocke le token dans la colonne clients.pennylane_token. */
 export async function storePennylaneToken(
   clientId: string,
   token: string,
 ): Promise<string> {
-  const name = pennylaneSecretName(clientId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabaseAdmin as any).rpc("vault_upsert_secret", {
-    p_name: name,
-    p_secret: token,
-  });
-  if (error) throw new Error(`Vault upsert failed: ${error.message}`);
-  return name;
+  const sentinelName = pennylaneSecretName(clientId);
+  const { error } = await supabaseAdmin
+    .from("clients")
+    .update({
+      pennylane_token: token,
+      pennylane_token_secret_name: sentinelName,
+    })
+    .eq("id", clientId);
+  if (error) throw new Error(`Stockage token Pennylane échoué : ${error.message}`);
+  return sentinelName;
 }
 
-/** Récupère le secret par nom (renvoie null si absent). */
+/**
+ * Récupère le token. Le param `secretName` est ignoré en faveur d'un lookup
+ * direct par client_id (extrait du nom). Si tu passes une valeur sentinelle
+ * du format `pennylane_token_<uuid>`, on récupère le client correspondant.
+ */
 export async function readPennylaneToken(
   secretName: string,
 ): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabaseAdmin as any).rpc("vault_read_secret", {
-    p_name: secretName,
-  });
-  if (error) throw new Error(`Vault read failed: ${error.message}`);
-  return (data as string | null) ?? null;
+  // secretName = "pennylane_token_<clientId>"
+  const clientId = secretName.replace(/^pennylane_token_/, "");
+  if (!clientId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("clients")
+    .select("pennylane_token")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (error) throw new Error(`Lecture token Pennylane échouée : ${error.message}`);
+  return (data?.pennylane_token as string | null) ?? null;
 }
 
-/** Supprime le secret (pour la déconnexion). */
+/** Supprime le token (déconnexion). */
 export async function deletePennylaneToken(secretName: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabaseAdmin as any).rpc("vault_delete_secret", {
-    p_name: secretName,
-  });
-  // Silencieux : si le helper n'existe pas (ancienne migration), on ignore.
-  if (error && !error.message.includes("function vault_delete_secret")) {
-    throw new Error(`Vault delete failed: ${error.message}`);
-  }
+  const clientId = secretName.replace(/^pennylane_token_/, "");
+  if (!clientId) return;
+  const { error } = await supabaseAdmin
+    .from("clients")
+    .update({ pennylane_token: null })
+    .eq("id", clientId);
+  if (error) throw new Error(`Suppression token Pennylane échouée : ${error.message}`);
 }
