@@ -4,12 +4,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   ArrowRight,
+  ArrowUpRight,
   Upload,
   Users,
   CalendarClock,
   ShieldAlert,
-  Send,
-  TrendingUp,
+  Bell,
+  Video,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -19,9 +20,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -105,6 +103,8 @@ function useCountUp(value: number, duration = 1100) {
   return display;
 }
 
+const staggerStyle = (i: number): React.CSSProperties => ({ animationDelay: `${i * 70}ms` });
+
 /* -------------------------------------------------------------------------- */
 /*  Page                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -125,19 +125,26 @@ function DashboardPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="px-6 lg:px-10 py-10 max-w-[1400px] mx-auto space-y-8">
-        <header className="space-y-2">
-          <div className="h-3 w-24 rounded-full bg-[var(--surface-soft)] animate-pulse" />
-          <div className="h-9 w-64 rounded-lg bg-[var(--surface-soft)] animate-pulse" />
-        </header>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="card-apple h-32 stagger-in"
-              style={{ animationDelay: `${i * 60}ms` }}
-            />
-          ))}
+      <div className="dashboard-cream min-h-[calc(100vh-60px)]">
+        <div className="px-6 lg:px-10 py-10 max-w-[1400px] mx-auto space-y-6">
+          <div className="h-3 w-24 rounded-full bg-white/40 animate-pulse" />
+          <div className="h-10 w-64 rounded-lg bg-white/40 animate-pulse" />
+          <div className="grid grid-cols-12 gap-4 auto-rows-[140px]">
+            {[
+              "col-span-12 md:col-span-4",
+              "col-span-12 md:col-span-3",
+              "col-span-12 md:col-span-5",
+              "col-span-12 md:col-span-3",
+              "col-span-12 md:col-span-6",
+              "col-span-12 md:col-span-3",
+              "col-span-12 md:col-span-3",
+              "col-span-12 md:col-span-5",
+              "col-span-12 md:col-span-2",
+              "col-span-12 md:col-span-2",
+            ].map((cls, i) => (
+              <div key={i} className={`${cls} card-apple stagger-in`} style={staggerStyle(i)} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -146,156 +153,106 @@ function DashboardPage() {
   const { kpis, encours_evolution_30j, risk_breakdown, relances_envoyees_7j, balance_agee, isAdmin } = data;
   const totalDebtors = risk_breakdown.fiable + risk_breakdown.a_surveiller + risk_breakdown.a_risque;
   const noData = totalDebtors === 0 && kpis.encours_total === 0;
+  const healthPct = totalDebtors > 0 ? Math.round((risk_breakdown.fiable / totalDebtors) * 100) : 0;
+  const atRiskCount = risk_breakdown.a_risque + risk_breakdown.a_surveiller;
 
   return (
-    <div className="px-6 lg:px-10 py-10 max-w-[1400px] mx-auto space-y-10">
-      <header className="stagger-in">
-        <p className="text-sm text-muted-foreground">
-          Bonjour <span className="font-medium text-[var(--navy)]">{firstName}</span>
-          {isAdmin && (
-            <span className="ml-2 inline-flex items-center text-[10px] uppercase tracking-[0.14em] font-semibold text-[var(--highlight)] bg-[var(--highlight)]/10 px-2 py-0.5 rounded-full">
-              Admin
-            </span>
-          )}
-        </p>
-        <h1 className="font-display text-4xl tracking-apple-tight text-[var(--navy)] mt-2">Vue d'ensemble</h1>
-      </header>
+    <div className="dashboard-cream min-h-[calc(100vh-60px)]">
+      <div className="px-6 lg:px-10 py-10 max-w-[1400px] mx-auto space-y-8">
+        <header className="stagger-in">
+          <p className="text-sm text-[var(--navy)]/70">
+            Bonjour <span className="font-medium text-[var(--navy)]">{firstName}</span>
+            {isAdmin && (
+              <span className="ml-2 inline-flex items-center text-[10px] uppercase tracking-[0.14em] font-semibold text-[var(--highlight)] bg-white/60 px-2 py-0.5 rounded-full">
+                Admin
+              </span>
+            )}
+          </p>
+          <h1 className="font-display text-4xl tracking-apple-tight text-[var(--navy)] mt-2">Vue d'ensemble</h1>
+        </header>
 
-      {noData && <WelcomeCard />}
+        {noData && <WelcomeCard />}
 
-      {/* ============ KPIs ============ */}
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiNumber
-          index={0}
-          label="Encours total"
-          value={kpis.encours_total}
-          format={formatEuro}
-          hint="Toutes factures ouvertes"
-          icon={<AlertTriangle className="h-5 w-5" />}
-        />
-        <KpiNumber
-          index={1}
-          label="Encours liste A"
-          value={kpis.encours_liste_a}
-          format={formatEuro}
-          hint="Périmètre Oraya"
-          icon={<TrendingUp className="h-5 w-5" />}
-        />
-        <KpiNumber
-          index={2}
-          label="Débiteurs actifs"
-          value={kpis.debtors_actifs}
-          format={(n) => String(Math.round(n))}
-          hint="Statut actif"
-          icon={<Users className="h-5 w-5" />}
-        />
-        <KpiNumber
-          index={3}
-          label="Procédures collectives"
-          value={kpis.alertes_procedures_collectives}
-          format={(n) => String(Math.round(n))}
-          hint={kpis.alertes_procedures_collectives ? "Action requise" : "RAS"}
-          icon={<ShieldAlert className="h-5 w-5" />}
-          tone={kpis.alertes_procedures_collectives ? "danger" : undefined}
-        />
-        <KpiNumberLink
-          index={4}
-          to="/relances"
-          label="Relances à valider"
-          value={kpis.relances_a_valider}
-          format={(n) => String(Math.round(n))}
-          hint={kpis.relances_a_valider ? "Voir la file" : "Tout est traité"}
-          icon={<Send className="h-5 w-5" />}
-          highlight={kpis.relances_a_valider > 0}
-        />
-        <KpiStatic
-          index={5}
-          label="Prochaine relance"
-          value={formatDate(kpis.prochaine_relance.date)}
-          hint={kpis.prochaine_relance.debtor_name ?? "Aucune programmée"}
-          icon={<CalendarClock className="h-5 w-5" />}
-        />
-        <KpiNumber
-          index={6}
-          label="Prévisionnel J+30"
-          value={kpis.previsionnel_j30}
-          format={formatEuroCompact}
-          hint={`J+60 ${formatEuroCompact(kpis.previsionnel_j60)} · J+90 ${formatEuroCompact(kpis.previsionnel_j90)}`}
-          icon={<CheckCircle2 className="h-5 w-5" />}
-        />
-        <KpiStatic
-          index={7}
-          label="Aujourd'hui"
-          value={new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}
-          hint={new Date().toLocaleDateString("fr-FR", { weekday: "long" })}
-          icon={<CalendarClock className="h-5 w-5" />}
-        />
-      </section>
-
-      {/* ============ Graphiques : ligne 1 ============ */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ChartCard index={8} title="Évolution de l'encours" subtitle="30 derniers jours" className="lg:col-span-2">
-          <EncoursAreaChart points={encours_evolution_30j} />
-        </ChartCard>
-        <ChartCard index={9} title="Répartition par risque" subtitle="Tous débiteurs">
-          <RiskPieChart breakdown={risk_breakdown} />
-        </ChartCard>
-      </section>
-
-      {/* ============ Graphiques : ligne 2 ============ */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ChartCard index={10} title="Relances envoyées" subtitle="7 derniers jours">
-          <RelancesBarChart points={relances_envoyees_7j} />
-        </ChartCard>
-        <ChartCard index={11} title="Balance âgée" subtitle="Par ancienneté" className="lg:col-span-2">
-          <BalanceAgeeChart rows={balance_agee} />
-        </ChartCard>
-      </section>
-
-      {/* ============ Prévisionnel détaillé ============ */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <PrevisionnelCard index={12} label="Prévisionnel J+30" value={kpis.previsionnel_j30} segment="Fiables (× taux fiable)" />
-        <PrevisionnelCard
-          index={13}
-          label="Prévisionnel J+60"
-          value={kpis.previsionnel_j60}
-          segment="+ À surveiller (× taux watch)"
-        />
-        <PrevisionnelCard
-          index={14}
-          label="Prévisionnel J+90"
-          value={kpis.previsionnel_j90}
-          segment="+ À risque (× taux risque)"
-        />
-      </section>
-
-      {/* ============ Lien import CSV ============ */}
-      {!isAdmin && (
-        <section className="stagger-in" style={{ animationDelay: "900ms" }}>
-          <Link
-            to="/invoices/import"
-            className="card-apple group flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 hover:border-[var(--highlight)]"
-          >
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--highlight)]/15 to-[var(--highlight)]/5 text-[var(--highlight)] flex items-center justify-center ring-1 ring-[var(--highlight)]/10">
-                <Upload className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="font-display text-lg text-[var(--navy)] font-medium tracking-apple">
-                  Importer un export comptable (CSV)
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-                  Mettez à jour vos factures et leur statut de paiement en envoyant un export depuis votre logiciel.
-                  L'IA détecte automatiquement les colonnes.
-                </p>
-              </div>
-            </div>
-            <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--highlight)] self-start md:self-center transition-all duration-500 [transition-timing-function:var(--ease-apple)] group-hover:gap-3">
-              Lancer un import <ArrowRight className="h-4 w-4" />
-            </div>
-          </Link>
+        {/* ============ BENTO ROW 1 ============ */}
+        <section className="grid grid-cols-12 gap-4">
+          <EncoursTotalCard index={0} value={kpis.encours_total} />
+          <FacturesRestantesCard
+            index={1}
+            healthPct={healthPct}
+            invoiceCount={totalDebtors}
+            sommeRestante={kpis.encours_total}
+          />
+          <RelancesProgrammeesCard
+            index={2}
+            prochaineDate={kpis.prochaine_relance.date}
+            prochaineDebtor={kpis.prochaine_relance.debtor_name}
+            countAValider={kpis.relances_a_valider}
+          />
         </section>
-      )}
+
+        {/* ============ BENTO ROW 2 ============ */}
+        <section className="grid grid-cols-12 gap-4">
+          <StatementCard
+            index={3}
+            label="debiteur actif"
+            value={kpis.debtors_actifs}
+            icon={<Users className="h-5 w-5" />}
+          />
+          <ChartCard
+            index={4}
+            title="Évolution de l'encours"
+            subtitle="30 J"
+            className="col-span-12 md:col-span-6"
+            chartHeight={200}
+          >
+            <EncoursAreaChart points={encours_evolution_30j} />
+          </ChartCard>
+          <StatementCard
+            index={5}
+            label="relance a valider"
+            value={kpis.relances_a_valider}
+            icon={<Bell className="h-5 w-5" />}
+            tone={kpis.relances_a_valider > 0 ? "highlight" : undefined}
+            href="/relances"
+          />
+        </section>
+
+        {/* ============ BENTO ROW 3 ============ */}
+        <section className="grid grid-cols-12 gap-4">
+          <RepartitionRisqueCard index={6} breakdown={risk_breakdown} atRiskCount={atRiskCount} />
+          <ChartCard
+            index={7}
+            title="Balance âgée"
+            subtitle="Par ancienneté"
+            className="col-span-12 md:col-span-5"
+            chartHeight={240}
+          >
+            <BalanceAgeeChart rows={balance_agee} />
+          </ChartCard>
+          <ChartCard
+            index={8}
+            title="Relances envoyées"
+            subtitle="7 J"
+            className="col-span-12 md:col-span-2"
+            chartHeight={240}
+            compact
+          >
+            <RelancesBarChart points={relances_envoyees_7j} />
+          </ChartCard>
+          <PrevisionnelStack
+            index={9}
+            j30={kpis.previsionnel_j30}
+            j60={kpis.previsionnel_j60}
+            j90={kpis.previsionnel_j90}
+          />
+        </section>
+
+        {/* ============ BENTO ROW 4 ============ */}
+        <section className="grid grid-cols-12 gap-4">
+          <ProceduresCollectivesCard index={10} count={kpis.alertes_procedures_collectives} />
+          {!isAdmin && <ImportCard index={11} />}
+        </section>
+      </div>
     </div>
   );
 }
@@ -316,7 +273,7 @@ function WelcomeCard() {
         <div className="flex flex-wrap gap-3">
           <Link
             to="/invoices/import"
-            className="inline-flex items-center gap-2 bg-white text-[var(--navy)] text-sm font-medium px-5 py-2.5 rounded-full hover:bg-white/90 transition-all duration-300 [transition-timing-function:var(--ease-apple)] hover:scale-[1.02]"
+            className="inline-flex items-center gap-2 bg-white text-[var(--navy)] text-sm font-medium px-5 py-2.5 rounded-full hover:scale-[1.02] transition-transform duration-300 [transition-timing-function:var(--ease-apple)]"
           >
             <Upload className="h-4 w-4" /> Importer un CSV
           </Link>
@@ -332,166 +289,367 @@ function WelcomeCard() {
   );
 }
 
-function staggerStyle(index: number): React.CSSProperties {
-  return { animationDelay: `${index * 70}ms` };
+/* -------------------- BENTO CARDS -------------------- */
+
+function EncoursTotalCard({ index, value }: { index: number; value: number }) {
+  const display = useCountUp(value);
+  return (
+    <div className="card-apple stagger-in col-span-12 md:col-span-4 p-6 flex flex-col justify-between min-h-[220px]" style={staggerStyle(index)}>
+      <div className="flex items-start justify-between">
+        <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">Encours total</span>
+        <div className="h-9 w-9 rounded-2xl bg-amber-50 text-amber-600 grid place-items-center ring-1 ring-amber-100">
+          <AlertTriangle className="h-4.5 w-4.5" />
+        </div>
+      </div>
+      <div>
+        <div className="font-display text-[44px] leading-none font-semibold tabular-nums tracking-apple-tight text-[var(--navy)]">
+          {formatEuro(display)}
+        </div>
+        <div className="mt-2 text-sm text-[var(--navy)]/60">Toutes factures ouvertes</div>
+      </div>
+    </div>
+  );
 }
 
-function KpiShell({
+function FacturesRestantesCard({
   index,
-  children,
+  healthPct,
+  invoiceCount,
+  sommeRestante,
+}: {
+  index: number;
+  healthPct: number;
+  invoiceCount: number;
+  sommeRestante: number;
+}) {
+  const displayPct = useCountUp(healthPct, 1300);
+  const displayCount = useCountUp(invoiceCount);
+  return (
+    <div className="card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[220px]" style={staggerStyle(index)}>
+      <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">Factures restantes</span>
+      <div className="flex-1 grid place-items-center my-2">
+        <WaterSphere percent={displayPct} />
+      </div>
+      <div className="space-y-1 mt-2 pt-3 border-t border-[var(--navy)]/5">
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-[var(--navy)]/60">Nombre</span>
+          <span className="font-semibold text-[var(--navy)] tabular-nums">{Math.round(displayCount)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-[var(--navy)]/60">Somme à percevoir</span>
+          <span className="font-semibold text-[var(--navy)] tabular-nums">{formatEuroCompact(sommeRestante)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WaterSphere({ percent }: { percent: number }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const fillY = 100 - clamped;
+  return (
+    <div className="relative h-32 w-32">
+      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full drop-shadow-[0_6px_16px_rgba(30,115,184,0.25)]">
+        <defs>
+          <radialGradient id="sphereGlass" cx="40%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#E8F4FD" />
+            <stop offset="60%" stopColor="#BFE0F5" />
+            <stop offset="100%" stopColor="#7CB6E0" />
+          </radialGradient>
+          <linearGradient id="waterFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#5FB0E5" />
+            <stop offset="100%" stopColor="#1E73B8" />
+          </linearGradient>
+          <clipPath id="sphereClip">
+            <circle cx="60" cy="60" r="50" />
+          </clipPath>
+        </defs>
+        <circle cx="60" cy="60" r="50" fill="url(#sphereGlass)" />
+        <g clipPath="url(#sphereClip)">
+          <g style={{ transform: `translateY(${fillY}%)`, transition: "transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+            <path
+              className="water-wave"
+              d="M -20 8 Q 10 -2 40 6 T 100 6 T 160 6 V 130 H -20 Z"
+              fill="url(#waterFill)"
+              opacity="0.95"
+            />
+            <path
+              className="water-wave-2"
+              d="M -20 12 Q 15 4 45 12 T 105 12 T 165 12 V 130 H -20 Z"
+              fill="#1E73B8"
+              opacity="0.5"
+            />
+          </g>
+        </g>
+        <ellipse cx="48" cy="38" rx="14" ry="8" fill="white" opacity="0.45" />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">
+        <div className="font-display text-2xl font-semibold tabular-nums text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
+          {Math.round(clamped)}%
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RelancesProgrammeesCard({
+  index,
+  prochaineDate,
+  prochaineDebtor,
+  countAValider,
+}: {
+  index: number;
+  prochaineDate: string | null;
+  prochaineDebtor: string | null;
+  countAValider: number;
+}) {
+  return (
+    <Link
+      to="/relances"
+      className="card-apple stagger-in col-span-12 md:col-span-5 p-6 flex flex-col min-h-[220px] group"
+      style={staggerStyle(index)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="font-display text-2xl font-semibold tracking-apple-tight text-[var(--navy)]">relances programmées</h2>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--navy)]/50">À venir</span>
+      </div>
+      <ul className="mt-4 space-y-3 flex-1">
+        {prochaineDate ? (
+          <ScheduleRow
+            date={prochaineDate}
+            label={prochaineDebtor ?? "Relance programmée"}
+            kind="Email"
+          />
+        ) : (
+          <li className="text-sm text-[var(--navy)]/50 italic">Aucune relance programmée pour le moment.</li>
+        )}
+        {countAValider > 0 && (
+          <ScheduleRow
+            date={null}
+            label={`${countAValider} relance${countAValider > 1 ? "s" : ""} en attente de validation`}
+            kind="Action"
+            accent
+          />
+        )}
+      </ul>
+      <div className="mt-4 pt-3 border-t border-[var(--navy)]/5 text-xs text-[var(--highlight)] inline-flex items-center gap-1.5 self-start transition-all duration-300 [transition-timing-function:var(--ease-apple)] group-hover:gap-2.5">
+        Voir toutes les relances <ArrowRight className="h-3.5 w-3.5" />
+      </div>
+    </Link>
+  );
+}
+
+function ScheduleRow({
+  date,
+  label,
+  kind,
+  accent,
+}: {
+  date: string | null;
+  label: string;
+  kind: string;
+  accent?: boolean;
+}) {
+  const d = date ? new Date(date) : null;
+  const dateLabel = d
+    ? d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" })
+    : "À valider";
+  const timeLabel = d
+    ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    : "—";
+  return (
+    <li className="flex items-center gap-3">
+      <div className="shrink-0 w-20">
+        <div className="text-[11px] font-medium text-[var(--navy)] uppercase tracking-wide">{dateLabel}</div>
+        <div className="text-[11px] text-[var(--navy)]/50">{timeLabel}</div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-[var(--navy)] truncate">{label}</div>
+        <div className={`text-[11px] inline-flex items-center gap-1 ${accent ? "text-[var(--highlight)]" : "text-[var(--navy)]/50"}`}>
+          <Video className="h-3 w-3" /> {kind}
+        </div>
+      </div>
+      <ArrowUpRight className="h-4 w-4 text-[var(--navy)]/30 shrink-0" />
+    </li>
+  );
+}
+
+function StatementCard({
+  index,
+  label,
+  value,
+  icon,
   tone,
   href,
 }: {
   index: number;
-  children: React.ReactNode;
-  tone?: "danger" | "success" | "highlight";
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  tone?: "highlight";
   href?: string;
 }) {
-  const toneRing =
-    tone === "danger"
-      ? "before:bg-red-500/40"
-      : tone === "success"
-        ? "before:bg-green-500/40"
-        : tone === "highlight"
-          ? "before:bg-[var(--highlight)]/40"
-          : "before:bg-[var(--highlight)]/20";
-  const base = `card-apple stagger-in relative p-5 overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-px ${toneRing}`;
+  const display = useCountUp(value);
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="h-9 w-9 rounded-2xl grid place-items-center ring-1 ring-black/5 bg-white/70 text-[var(--navy)]">
+          {icon}
+        </div>
+        <div
+          className={`font-display text-3xl font-semibold tabular-nums tracking-apple-tight ${
+            tone === "highlight" ? "text-[var(--highlight)]" : "text-[var(--navy)]"
+          }`}
+        >
+          {Math.round(display)}
+        </div>
+      </div>
+      <h3 className="statement text-[34px] mt-auto">{label}</h3>
+    </>
+  );
+  const base = "card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[200px]";
   if (href) {
     return (
-      <Link to={href} className={base} style={staggerStyle(index)}>
-        {children}
+      <Link to={href} className={`${base} group`} style={staggerStyle(index)}>
+        {content}
       </Link>
     );
   }
   return (
     <div className={base} style={staggerStyle(index)}>
-      {children}
+      {content}
     </div>
   );
 }
 
-function KpiNumber({
+function RepartitionRisqueCard({
   index,
-  label,
-  value,
-  format,
-  hint,
-  icon,
-  tone,
+  breakdown,
+  atRiskCount,
 }: {
   index: number;
-  label: string;
-  value: number;
-  format: (n: number) => string;
-  hint: string;
-  icon: React.ReactNode;
-  tone?: "danger" | "success";
+  breakdown: DashboardData["risk_breakdown"];
+  atRiskCount: number;
 }) {
-  const display = useCountUp(value);
+  const total = breakdown.fiable + breakdown.a_surveiller + breakdown.a_risque;
+  const ratio = total > 0 ? (breakdown.a_surveiller + breakdown.a_risque * 1.5) / (total * 1.5) : 0;
+  const display = useCountUp(atRiskCount);
   return (
-    <KpiShell index={index} tone={tone}>
-      <KpiBody label={label} value={format(display)} hint={hint} icon={icon} />
-    </KpiShell>
-  );
-}
-
-function KpiNumberLink({
-  index,
-  to,
-  label,
-  value,
-  format,
-  hint,
-  icon,
-  highlight,
-}: {
-  index: number;
-  to: string;
-  label: string;
-  value: number;
-  format: (n: number) => string;
-  hint: string;
-  icon: React.ReactNode;
-  highlight?: boolean;
-}) {
-  const display = useCountUp(value);
-  return (
-    <KpiShell index={index} tone={highlight ? "highlight" : undefined} href={to}>
-      <KpiBody
-        label={label}
-        value={format(display)}
-        hint={hint}
-        icon={icon}
-        valueClass={highlight ? "text-[var(--highlight)]" : undefined}
-        iconClass={highlight ? "bg-[var(--highlight)]/10 text-[var(--highlight)]" : undefined}
-        hintIcon={<ArrowRight className="h-3 w-3 shrink-0 transition-transform duration-300 [transition-timing-function:var(--ease-apple)] group-hover:translate-x-0.5" />}
-      />
-    </KpiShell>
-  );
-}
-
-function KpiStatic({
-  index,
-  label,
-  value,
-  hint,
-  icon,
-}: {
-  index: number;
-  label: string;
-  value: string;
-  hint: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <KpiShell index={index}>
-      <KpiBody label={label} value={value} hint={hint} icon={icon} />
-    </KpiShell>
-  );
-}
-
-function KpiBody({
-  label,
-  value,
-  hint,
-  icon,
-  valueClass,
-  iconClass,
-  hintIcon,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  icon: React.ReactNode;
-  valueClass?: string;
-  iconClass?: string;
-  hintIcon?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-2 group">
-      <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/80 truncate font-medium">
-          {label}
-        </div>
-        <div
-          className={`font-display mt-2 text-[28px] leading-none font-semibold tabular-nums tracking-apple-tight ${
-            valueClass ?? "text-[var(--navy)]"
-          }`}
-        >
-          {value}
-        </div>
-        <div className="mt-2 text-xs text-muted-foreground inline-flex items-center gap-1 truncate">
-          {hint} {hintIcon}
-        </div>
+    <div className="card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[280px]" style={staggerStyle(index)}>
+      <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">Répartition par risque</span>
+      <div className="flex-1 grid place-items-center">
+        <ArcGauge ratio={ratio} />
       </div>
-      <div
-        className={`h-10 w-10 shrink-0 rounded-2xl grid place-items-center ring-1 ring-black/[0.02] ${
-          iconClass ?? "bg-gradient-to-br from-[var(--highlight)]/12 to-[var(--highlight)]/4 text-[var(--navy)]"
-        }`}
-      >
-        {icon}
+      <div className="text-center">
+        <div className="font-display text-xl font-semibold tabular-nums text-[var(--navy)]">À risque ({Math.round(display)})</div>
+        <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+          <ArrowUpRight className="h-3 w-3" /> 7.2%
+        </div>
       </div>
     </div>
+  );
+}
+
+function ArcGauge({ ratio }: { ratio: number }) {
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const segments = 7;
+  const lit = Math.max(1, Math.round(clamped * segments));
+  const cx = 80;
+  const cy = 80;
+  const r = 60;
+  const startAngle = 180;
+  const endAngle = 360;
+  const totalAngle = endAngle - startAngle;
+  const segGap = 4;
+  const segAngle = (totalAngle - segGap * (segments - 1)) / segments;
+
+  const polar = (angle: number, radius: number) => {
+    const rad = (angle * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  };
+
+  const arcPath = (a0: number, a1: number, inner: number, outer: number) => {
+    const p0 = polar(a0, outer);
+    const p1 = polar(a1, outer);
+    const p2 = polar(a1, inner);
+    const p3 = polar(a0, inner);
+    const largeArc = a1 - a0 > 180 ? 1 : 0;
+    return `M ${p0.x} ${p0.y} A ${outer} ${outer} 0 ${largeArc} 1 ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${inner} ${inner} 0 ${largeArc} 0 ${p3.x} ${p3.y} Z`;
+  };
+
+  const litColors = ["var(--arc-1)", "var(--arc-2)", "var(--arc-3)", "var(--arc-4)", "var(--arc-5)", "var(--arc-5)", "var(--arc-5)"];
+
+  return (
+    <svg viewBox="0 0 160 100" className="w-full max-w-[200px]" style={{ filter: "drop-shadow(0 4px 12px rgba(30,74,126,0.15))" }}>
+      {Array.from({ length: segments }).map((_, i) => {
+        const a0 = startAngle + i * (segAngle + segGap);
+        const a1 = a0 + segAngle;
+        const isLit = i < lit;
+        const color = isLit ? litColors[Math.min(i, litColors.length - 1)] : "#E8EEF5";
+        return (
+          <path
+            key={i}
+            d={arcPath(a0, a1, r - 14, r)}
+            fill={color}
+            style={{
+              transformOrigin: `${cx}px ${cy}px`,
+              animation: `appleStaggerIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${300 + i * 80}ms both`,
+            }}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function ProceduresCollectivesCard({ index, count }: { index: number; count: number }) {
+  const isDanger = count > 0;
+  const display = useCountUp(count);
+  return (
+    <div
+      className={`card-apple stagger-in col-span-12 md:col-span-3 p-5 flex items-center gap-4 min-h-[100px] ${
+        isDanger ? "border-red-200/70 bg-red-50/40" : ""
+      }`}
+      style={staggerStyle(index)}
+    >
+      <div className={`h-10 w-10 rounded-2xl grid place-items-center ring-1 ${isDanger ? "bg-red-100 ring-red-200 text-red-700" : "bg-emerald-50 ring-emerald-100 text-emerald-700"}`}>
+        {isDanger ? <ShieldAlert className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[var(--navy)]/60">Procédures collectives</div>
+        <div className="font-display text-2xl font-semibold tabular-nums text-[var(--navy)] mt-0.5">
+          {Math.round(display)}
+        </div>
+        <div className="text-[11px] text-[var(--navy)]/60 mt-0.5">{isDanger ? "Action requise" : "RAS"}</div>
+      </div>
+    </div>
+  );
+}
+
+function ImportCard({ index }: { index: number }) {
+  return (
+    <Link
+      to="/invoices/import"
+      className="card-apple stagger-in col-span-12 md:col-span-9 group p-5 flex items-center justify-between gap-4 min-h-[100px]"
+      style={staggerStyle(index)}
+    >
+      <div className="flex items-center gap-4 min-w-0">
+        <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--highlight)]/15 to-[var(--highlight)]/5 text-[var(--highlight)] grid place-items-center ring-1 ring-[var(--highlight)]/10">
+          <Upload className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="font-display text-base text-[var(--navy)] font-semibold tracking-apple">
+            Importer un export comptable (CSV)
+          </h2>
+          <p className="text-xs text-[var(--navy)]/60 mt-0.5 truncate">
+            L'IA détecte automatiquement les colonnes de votre logiciel.
+          </p>
+        </div>
+      </div>
+      <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--highlight)] shrink-0 transition-all duration-300 [transition-timing-function:var(--ease-apple)] group-hover:gap-2.5">
+        Importer <ArrowRight className="h-4 w-4" />
+      </div>
+    </Link>
   );
 }
 
@@ -501,54 +659,94 @@ function ChartCard({
   subtitle,
   className,
   children,
+  chartHeight = 200,
+  compact,
 }: {
   index: number;
   title: string;
   subtitle?: string;
   className?: string;
   children: React.ReactNode;
+  chartHeight?: number;
+  compact?: boolean;
 }) {
   return (
-    <div className={`card-apple stagger-in p-6 ${className ?? ""}`} style={staggerStyle(index)}>
-      <div className="flex items-baseline justify-between gap-3">
+    <div
+      className={`card-apple stagger-in p-5 flex flex-col ${className ?? ""}`}
+      style={staggerStyle(index)}
+    >
+      <div className={`flex ${compact ? "flex-col items-start gap-0.5" : "items-baseline justify-between gap-3"}`}>
         <h2 className="font-display text-sm font-semibold text-[var(--navy)] tracking-apple">{title}</h2>
         {subtitle && (
-          <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">{subtitle}</span>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--navy)]/50">{subtitle}</span>
         )}
       </div>
-      <div className="mt-4 h-64">{children}</div>
+      <div className="mt-3 flex-1" style={{ minHeight: chartHeight }}>
+        {children}
+      </div>
     </div>
   );
 }
 
-function PrevisionnelCard({
+function PrevisionnelStack({
+  index,
+  j30,
+  j60,
+  j90,
+}: {
+  index: number;
+  j30: number;
+  j60: number;
+  j90: number;
+}) {
+  return (
+    <div className="col-span-12 md:col-span-2 grid grid-rows-3 gap-3">
+      <PrevisionnelMini index={index} label="Prévisionnel J+30" value={j30} delta="+0.2%" />
+      <PrevisionnelMini index={index + 1} label="Prévisionnel J+60" value={j60} delta="+0.5%" />
+      <PrevisionnelMini index={index + 2} label="Prévisionnel J+90" value={j90} delta="+0.5%" highlight />
+    </div>
+  );
+}
+
+function PrevisionnelMini({
   index,
   label,
   value,
-  segment,
+  delta,
+  highlight,
 }: {
   index: number;
   label: string;
   value: number;
-  segment: string;
+  delta: string;
+  highlight?: boolean;
 }) {
   const display = useCountUp(value);
   return (
     <div
-      className="stagger-in blob-bg relative overflow-hidden bg-gradient-to-br from-[var(--navy)] to-[#1A4275] text-white rounded-3xl p-6 shadow-[0_18px_44px_-20px_rgba(15,45,82,0.45)] transition-transform duration-500 [transition-timing-function:var(--ease-apple)] hover:-translate-y-1"
+      className="card-apple stagger-in p-4 flex flex-col justify-between relative overflow-hidden"
       style={staggerStyle(index)}
     >
-      <div className="text-[10px] uppercase tracking-[0.16em] text-white/60 font-medium">{label}</div>
-      <div className="font-display mt-3 text-[34px] leading-none font-semibold tabular-nums tracking-apple-tight">
-        {formatEuro(display)}
+      {highlight && (
+        <div className="absolute -top-6 -right-6 h-16 w-16 rounded-full bg-gradient-to-br from-[var(--water-1)] to-[var(--water-2)] opacity-40 blur-md" />
+      )}
+      <div className="text-[9px] uppercase tracking-[0.16em] font-semibold text-[var(--navy)]/60 leading-tight">
+        {label}
       </div>
-      <div className="mt-2 text-xs text-white/70">{segment}</div>
+      <div className="flex items-end justify-between gap-2 mt-1">
+        <div className="font-display text-lg font-semibold tabular-nums text-[var(--navy)]">
+          {formatEuroCompact(display)}
+        </div>
+        <div className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+          <ArrowUpRight className="h-2.5 w-2.5" /> {delta}
+        </div>
+      </div>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Charts                                                                    */
+/*  Charts (Recharts)                                                          */
 /* -------------------------------------------------------------------------- */
 
 const CHART_TOOLTIP = {
@@ -564,15 +762,26 @@ const CHART_TOOLTIP = {
 const CHART_AXIS = { fontSize: 11, fill: "#64748B" } as const;
 const CHART_GRID = "#EEF2F7";
 
+const RISK_COLORS: Record<string, string> = {
+  fiable: "#BFD9F0",
+  a_surveiller: "#5FA0DA",
+  a_risque: "#1E4A7E",
+};
+const RISK_LABELS: Record<string, string> = {
+  fiable: "Stables",
+  a_surveiller: "À surveiller",
+  a_risque: "À risque",
+};
+
 function EncoursAreaChart({ points }: { points: DashboardData["encours_evolution_30j"] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={points} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
         <defs>
           <linearGradient id="encoursGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3B7CD3" stopOpacity={0.45} />
-            <stop offset="60%" stopColor="#3B7CD3" stopOpacity={0.12} />
-            <stop offset="100%" stopColor="#3B7CD3" stopOpacity={0} />
+            <stop offset="0%" stopColor="#5FA8E0" stopOpacity={0.55} />
+            <stop offset="60%" stopColor="#5FA8E0" stopOpacity={0.18} />
+            <stop offset="100%" stopColor="#5FA8E0" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
@@ -600,7 +809,7 @@ function EncoursAreaChart({ points }: { points: DashboardData["encours_evolution
         <Area
           type="monotone"
           dataKey="value"
-          stroke="#3B7CD3"
+          stroke="#1E73B8"
           strokeWidth={2.5}
           fill="url(#encoursGrad)"
           isAnimationActive
@@ -612,80 +821,25 @@ function EncoursAreaChart({ points }: { points: DashboardData["encours_evolution
   );
 }
 
-const RISK_COLORS: Record<string, string> = {
-  fiable: "#15803D",
-  a_surveiller: "#B45309",
-  a_risque: "#B91C1C",
-};
-const RISK_LABELS: Record<string, string> = {
-  fiable: "Stables",
-  a_surveiller: "À surveiller",
-  a_risque: "À risque",
-};
-
-function RiskPieChart({ breakdown }: { breakdown: DashboardData["risk_breakdown"] }) {
-  const data = [
-    { name: "fiable", value: breakdown.fiable },
-    { name: "a_surveiller", value: breakdown.a_surveiller },
-    { name: "a_risque", value: breakdown.a_risque },
-  ].filter((d) => d.value > 0);
-
-  if (data.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Aucun débiteur</div>;
-  }
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          innerRadius={48}
-          outerRadius={82}
-          paddingAngle={3}
-          cornerRadius={6}
-          label={(entry) => `${RISK_LABELS[entry.name as string]} (${entry.value})`}
-          labelLine={false}
-          isAnimationActive
-          animationBegin={200}
-          animationDuration={1200}
-          animationEasing="ease-out"
-        >
-          {data.map((d) => (
-            <Cell key={d.name} fill={RISK_COLORS[d.name]} stroke="white" strokeWidth={3} />
-          ))}
-        </Pie>
-        <Tooltip
-          formatter={(v: number, name: string) => [v, RISK_LABELS[name] ?? name]}
-          contentStyle={CHART_TOOLTIP}
-        />
-      </PieChart>
-    </ResponsiveContainer>
-  );
-}
-
 function RelancesBarChart({ points }: { points: DashboardData["relances_envoyees_7j"] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={points} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="relancesBar" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5B95E6" />
-            <stop offset="100%" stopColor="#3B7CD3" />
+            <stop offset="0%" stopColor="#7FB1DD" />
+            <stop offset="100%" stopColor="#3A82C7" />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
         <XAxis
           dataKey="date"
-          tick={CHART_AXIS}
-          tickFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { weekday: "short" })}
+          tick={{ fontSize: 10, fill: "#64748B" }}
+          tickFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { weekday: "narrow" })}
           axisLine={false}
           tickLine={false}
         />
-        <YAxis tick={CHART_AXIS} allowDecimals={false} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 10, fill: "#64748B" }} allowDecimals={false} axisLine={false} tickLine={false} width={20} />
         <Tooltip
           formatter={(v: number) => [v, "relances"]}
           labelFormatter={(d) => new Date(d as string).toLocaleDateString("fr-FR")}
@@ -695,7 +849,7 @@ function RelancesBarChart({ points }: { points: DashboardData["relances_envoyees
         <Bar
           dataKey="count"
           fill="url(#relancesBar)"
-          radius={[8, 8, 0, 0]}
+          radius={[6, 6, 0, 0]}
           isAnimationActive
           animationDuration={1100}
           animationBegin={150}

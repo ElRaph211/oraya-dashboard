@@ -74,6 +74,19 @@
   --success: oklch(0.62 0.14 155);
   --warning: oklch(0.74 0.15 70);
   --danger: oklch(0.6 0.21 25);
+
+  --cream-1: #F6ECD4;
+  --cream-2: #F1E4BD;
+  --cream-3: #E9D9A6;
+  --cream-mist: #FDF8EA;
+  --water-1: #BFE0F5;
+  --water-2: #4FA8E0;
+  --water-3: #1E73B8;
+  --arc-1: #DCE9F7;
+  --arc-2: #B9D4EE;
+  --arc-3: #7FB1DD;
+  --arc-4: #3A82C7;
+  --arc-5: #1E4A7E;
 }
 
 @layer base {
@@ -166,7 +179,31 @@
   @media (prefers-reduced-motion: reduce) {
     .stagger-in,
     .fade-in-up,
-    .blob-bg::before { animation: none !important; }
+    .blob-bg::before,
+    .water-wave,
+    .water-wave-2 { animation: none !important; }
     .card-apple { transition: none !important; }
+  }
+
+  .dashboard-cream {
+    background:
+      radial-gradient(120% 80% at 80% 0%, rgba(176, 211, 240, 0.55) 0%, transparent 55%),
+      radial-gradient(100% 70% at 0% 100%, rgba(232, 218, 172, 0.6) 0%, transparent 55%),
+      linear-gradient(135deg, var(--cream-1) 0%, var(--cream-2) 55%, var(--cream-3) 100%);
+  }
+
+  .statement {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--navy);
+    line-height: 0.95;
+  }
+
+  .water-wave { animation: waterWave 6s ease-in-out infinite; transform-origin: center; }
+  .water-wave-2 { animation: waterWave 7.5s ease-in-out -1.5s infinite; transform-origin: center; }
+  @keyframes waterWave {
+    0%, 100% { transform: translateX(0) translateY(0); }
+    50% { transform: translateX(-8px) translateY(-2px); }
   }
 }
