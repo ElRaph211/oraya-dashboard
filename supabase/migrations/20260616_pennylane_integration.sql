@@ -21,9 +21,13 @@ CREATE INDEX IF NOT EXISTS debtors_pennylane_customer_id_idx
 ALTER TABLE invoices
   ADD COLUMN IF NOT EXISTS pennylane_invoice_id bigint,
   ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
+-- Index unique NON partiel : un index partiel (WHERE ... IS NOT NULL) ne peut
+-- pas être utilisé par ON CONFLICT sans répéter la clause WHERE, ce que
+-- supabase-js ne permet pas. Les NULL restant distincts en SQL, les factures
+-- manuelles (pennylane_invoice_id NULL) ne conflictent pas entre elles.
+DROP INDEX IF EXISTS invoices_pennylane_invoice_id_client_idx;
 CREATE UNIQUE INDEX IF NOT EXISTS invoices_pennylane_invoice_id_client_idx
-  ON invoices(pennylane_invoice_id, client_id)
-  WHERE pennylane_invoice_id IS NOT NULL;
+  ON invoices(pennylane_invoice_id, client_id);
 
 -- 4) Fonctions Supabase Vault (SECURITY DEFINER — service_role uniquement)
 --    Le Vault stocke les tokens API chiffrés au repos.
