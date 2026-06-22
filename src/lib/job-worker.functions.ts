@@ -104,7 +104,13 @@ Catégories possibles :
   };
 }
 
-export type ProcessJobQueueResult = { ok: true; processed: number; errors: number };
+export type ProcessJobQueueResult = {
+  ok: true;
+  processed: number;
+  errors: number;
+  /** Présent uniquement en cas d'erreur de claim — utile pour le debug cron. */
+  warning?: string;
+};
 
 /**
  * Indique si l'erreur est transitoire — on retente plutôt que de marquer failed.
@@ -154,8 +160,15 @@ export async function processJobQueueCore(limit = 10): Promise<ProcessJobQueueRe
     p_limit: limit,
   });
   if (claimErr) {
-    console.error("[job-worker] claim_jobs failed", claimErr);
-    return { ok: true, processed: 0, errors: 0 };
+    console.error("[job-worker] claim_jobs RPC failed", claimErr);
+    // Remonter l'erreur dans la réponse JSON pour qu'elle soit visible
+    // depuis cron-job.org (History → Body) sans avoir à fouiller Railway.
+    return {
+      ok: true,
+      processed: 0,
+      errors: 0,
+      warning: `claim_jobs RPC failed: ${claimErr.message ?? "unknown"} — vérifier que la migration 20260617_job_queue_hardening.sql a bien été exécutée`,
+    };
   }
   if (!jobs || jobs.length === 0) return { ok: true, processed: 0, errors: 0 };
 

@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   Upload,
   Users,
-  CalendarClock,
   ShieldAlert,
   Bell,
   Video,
@@ -25,7 +24,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
 import { getDashboardData, type DashboardData } from "@/lib/queries/dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -48,11 +46,6 @@ const formatEuroCompact = (n: number) =>
     maximumFractionDigits: 1,
   }).format(n);
 
-const formatDate = (iso: string | null) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
-};
-
 function getFirstName(email: string, metadata: Record<string, unknown> | undefined): string {
   const contact = metadata?.contact_name as string | undefined;
   if (contact) return contact.split(" ")[0];
@@ -60,7 +53,7 @@ function getFirstName(email: string, metadata: Record<string, unknown> | undefin
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Hooks                                                                     */
+/*  Hook count-up                                                             */
 /* -------------------------------------------------------------------------- */
 
 const APPLE_EASE = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -71,33 +64,19 @@ function useCountUp(value: number, duration = 1100) {
   const fromRef = useRef(0);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setDisplay(value);
-      return;
-    }
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setDisplay(value);
-      return;
-    }
+    if (typeof window === "undefined") { setDisplay(value); return; }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setDisplay(value); return; }
     const start = performance.now();
     const from = fromRef.current;
     const to = value;
     const tick = (now: number) => {
-      const elapsed = now - start;
-      const t = Math.min(1, elapsed / duration);
-      const eased = APPLE_EASE(t);
-      const next = from + (to - from) * eased;
-      setDisplay(next);
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        fromRef.current = to;
-      }
+      const t = Math.min(1, (now - start) / duration);
+      setDisplay(from + (to - from) * APPLE_EASE(t));
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      else fromRef.current = to;
     };
     rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [value, duration]);
 
   return display;
@@ -134,13 +113,12 @@ function DashboardPage() {
               "col-span-12 md:col-span-4",
               "col-span-12 md:col-span-3",
               "col-span-12 md:col-span-5",
+              "col-span-12 md:col-span-4",
               "col-span-12 md:col-span-3",
-              "col-span-12 md:col-span-6",
-              "col-span-12 md:col-span-3",
-              "col-span-12 md:col-span-3",
-              "col-span-12 md:col-span-5",
               "col-span-12 md:col-span-2",
+              "col-span-12 md:col-span-3",
               "col-span-12 md:col-span-2",
+              "col-span-12 md:col-span-10",
             ].map((cls, i) => (
               <div key={i} className={`${cls} card-apple stagger-in`} style={staggerStyle(i)} />
             ))}
@@ -154,11 +132,11 @@ function DashboardPage() {
   const totalDebtors = risk_breakdown.fiable + risk_breakdown.a_surveiller + risk_breakdown.a_risque;
   const noData = totalDebtors === 0 && kpis.encours_total === 0;
   const healthPct = totalDebtors > 0 ? Math.round((risk_breakdown.fiable / totalDebtors) * 100) : 0;
-  const atRiskCount = risk_breakdown.a_risque + risk_breakdown.a_surveiller;
 
   return (
     <div className="dashboard-cream min-h-[calc(100vh-60px)]">
       <div className="px-6 lg:px-10 py-10 max-w-[1400px] mx-auto space-y-8">
+
         <header className="stagger-in">
           <p className="text-sm text-[var(--navy)]/70">
             Bonjour <span className="font-medium text-[var(--navy)]">{firstName}</span>
@@ -173,7 +151,7 @@ function DashboardPage() {
 
         {noData && <WelcomeCard />}
 
-        {/* ============ BENTO ROW 1 ============ */}
+        {/* ROW 1 */}
         <section className="grid grid-cols-12 gap-4">
           <EncoursTotalCard index={0} value={kpis.encours_total} />
           <FacturesRestantesCard
@@ -190,47 +168,20 @@ function DashboardPage() {
           />
         </section>
 
-        {/* ============ BENTO ROW 2 ============ */}
+        {/* ROW 2 */}
         <section className="grid grid-cols-12 gap-4">
-          <StatementCard
+          <ChartCard
             index={3}
-            label="debiteur actif"
-            value={kpis.debtors_actifs}
-            icon={<Users className="h-5 w-5" />}
-          />
-          <ChartCard
-            index={4}
-            title="Évolution de l'encours"
-            subtitle="30 J"
-            className="col-span-12 md:col-span-6"
-            chartHeight={200}
-          >
-            <EncoursAreaChart points={encours_evolution_30j} />
-          </ChartCard>
-          <StatementCard
-            index={5}
-            label="relance a valider"
-            value={kpis.relances_a_valider}
-            icon={<Bell className="h-5 w-5" />}
-            tone={kpis.relances_a_valider > 0 ? "highlight" : undefined}
-            href="/relances"
-          />
-        </section>
-
-        {/* ============ BENTO ROW 3 ============ */}
-        <section className="grid grid-cols-12 gap-4">
-          <RepartitionRisqueCard index={6} breakdown={risk_breakdown} atRiskCount={atRiskCount} />
-          <ChartCard
-            index={7}
             title="Balance âgée"
             subtitle="Par ancienneté"
-            className="col-span-12 md:col-span-5"
+            className="col-span-12 md:col-span-4"
             chartHeight={240}
           >
             <BalanceAgeeChart rows={balance_agee} />
           </ChartCard>
+          <RepartitionRisqueCard index={4} breakdown={risk_breakdown} />
           <ChartCard
-            index={8}
+            index={5}
             title="Relances envoyées"
             subtitle="7 J"
             className="col-span-12 md:col-span-2"
@@ -239,26 +190,79 @@ function DashboardPage() {
           >
             <RelancesBarChart points={relances_envoyees_7j} />
           </ChartCard>
+          <div className="col-span-12 md:col-span-3 flex flex-col gap-4">
+            <StatementCard
+              index={6}
+              label="relance a valider"
+              value={kpis.relances_a_valider}
+              icon={<Bell className="h-5 w-5" />}
+              tone="blue"
+              href="/relances"
+              compact
+            />
+            <StatementCard
+              index={7}
+              label="debiteur actif"
+              value={kpis.debtors_actifs}
+              icon={<Users className="h-5 w-5" />}
+              compact
+            />
+            <ProceduresCollectivesCard index={8} count={kpis.alertes_procedures_collectives} />
+          </div>
+        </section>
+
+        {/* ROW 3 */}
+        <section className="grid grid-cols-12 gap-4">
           <PrevisionnelStack
             index={9}
             j30={kpis.previsionnel_j30}
             j60={kpis.previsionnel_j60}
             j90={kpis.previsionnel_j90}
           />
+          <ChartCard
+            index={10}
+            title="Évolution de l'encours"
+            subtitle="30 J"
+            className="col-span-12 md:col-span-10"
+            chartHeight={170}
+          >
+            <EncoursAreaChart points={encours_evolution_30j} />
+          </ChartCard>
         </section>
 
-        {/* ============ BENTO ROW 4 ============ */}
-        <section className="grid grid-cols-12 gap-4">
-          <ProceduresCollectivesCard index={10} count={kpis.alertes_procedures_collectives} />
-          {!isAdmin && <ImportCard index={11} />}
-        </section>
+        {/* Import CSV (non-admin) */}
+        {!isAdmin && (
+          <section className="stagger-in" style={staggerStyle(11)}>
+            <Link
+              to="/invoices/import"
+              className="card-apple group flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 hover:border-[var(--highlight)]"
+            >
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--highlight)]/15 to-[var(--highlight)]/5 text-[var(--highlight)] grid place-items-center ring-1 ring-[var(--highlight)]/10">
+                  <Upload className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display text-base text-[var(--navy)] font-semibold tracking-apple">
+                    Importer un export comptable (CSV)
+                  </h2>
+                  <p className="text-xs text-[var(--navy)]/60 mt-0.5 truncate">
+                    L'IA détecte automatiquement les colonnes de votre logiciel.
+                  </p>
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--highlight)] shrink-0 transition-all duration-300 [transition-timing-function:var(--ease-apple)] group-hover:gap-2.5">
+                Importer <ArrowRight className="h-4 w-4" />
+              </div>
+            </Link>
+          </section>
+        )}
       </div>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Sub-components                                                            */
+/*  WelcomeCard                                                               */
 /* -------------------------------------------------------------------------- */
 
 function WelcomeCard() {
@@ -289,23 +293,32 @@ function WelcomeCard() {
   );
 }
 
-/* -------------------- BENTO CARDS -------------------- */
+/* -------------------------------------------------------------------------- */
+/*  Row 1 cards                                                               */
+/* -------------------------------------------------------------------------- */
 
 function EncoursTotalCard({ index, value }: { index: number; value: number }) {
   const display = useCountUp(value);
   return (
-    <div className="card-apple stagger-in col-span-12 md:col-span-4 p-6 flex flex-col justify-between min-h-[220px]" style={staggerStyle(index)}>
+    <div
+      className="card-apple blob-bg stagger-in col-span-12 md:col-span-4 p-6 flex flex-col justify-between min-h-[220px] text-white"
+      style={{
+        ...staggerStyle(index),
+        background: "linear-gradient(135deg, var(--navy) 0%, #1A4275 58%, #1E73B8 100%)",
+        borderColor: "transparent",
+      }}
+    >
       <div className="flex items-start justify-between">
-        <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">Encours total</span>
-        <div className="h-9 w-9 rounded-2xl bg-amber-50 text-amber-600 grid place-items-center ring-1 ring-amber-100">
-          <AlertTriangle className="h-4.5 w-4.5" />
+        <span className="text-base font-semibold tracking-apple text-white/90">Encours total</span>
+        <div className="h-9 w-9 rounded-2xl bg-white/15 text-white grid place-items-center ring-1 ring-white/25">
+          <AlertTriangle className="h-4 w-4" />
         </div>
       </div>
       <div>
-        <div className="font-display text-[44px] leading-none font-semibold tabular-nums tracking-apple-tight text-[var(--navy)]">
+        <div className="font-display text-[44px] leading-none font-semibold tabular-nums tracking-apple-tight text-white">
           {formatEuro(display)}
         </div>
-        <div className="mt-2 text-sm text-[var(--navy)]/60">Toutes factures ouvertes</div>
+        <div className="mt-2 text-sm text-white/70">Toutes factures ouvertes</div>
       </div>
     </div>
   );
@@ -325,8 +338,13 @@ function FacturesRestantesCard({
   const displayPct = useCountUp(healthPct, 1300);
   const displayCount = useCountUp(invoiceCount);
   return (
-    <div className="card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[220px]" style={staggerStyle(index)}>
-      <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">Factures restantes</span>
+    <div
+      className="card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[220px]"
+      style={staggerStyle(index)}
+    >
+      <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">
+        Factures restantes
+      </span>
       <div className="flex-1 grid place-items-center my-2">
         <WaterSphere percent={displayPct} />
       </div>
@@ -348,8 +366,11 @@ function WaterSphere({ percent }: { percent: number }) {
   const clamped = Math.max(0, Math.min(100, percent));
   const fillY = 100 - clamped;
   return (
-    <div className="relative h-32 w-32">
-      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full drop-shadow-[0_6px_16px_rgba(30,115,184,0.25)]">
+    <div className="relative h-32 w-32 sphere-float">
+      <svg
+        viewBox="0 0 120 120"
+        className="absolute inset-0 h-full w-full drop-shadow-[0_6px_16px_rgba(30,115,184,0.25)]"
+      >
         <defs>
           <radialGradient id="sphereGlass" cx="40%" cy="35%" r="65%">
             <stop offset="0%" stopColor="#E8F4FD" />
@@ -366,7 +387,12 @@ function WaterSphere({ percent }: { percent: number }) {
         </defs>
         <circle cx="60" cy="60" r="50" fill="url(#sphereGlass)" />
         <g clipPath="url(#sphereClip)">
-          <g style={{ transform: `translateY(${fillY}%)`, transition: "transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+          <g
+            style={{
+              transform: `translateY(${fillY}%)`,
+              transition: "transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          >
             <path
               className="water-wave"
               d="M -20 8 Q 10 -2 40 6 T 100 6 T 160 6 V 130 H -20 Z"
@@ -410,16 +436,14 @@ function RelancesProgrammeesCard({
       style={staggerStyle(index)}
     >
       <div className="flex items-start justify-between gap-2">
-        <h2 className="font-display text-2xl font-semibold tracking-apple-tight text-[var(--navy)]">relances programmées</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-apple-tight text-[var(--navy)]">
+          relances programmées
+        </h2>
         <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--navy)]/50">À venir</span>
       </div>
       <ul className="mt-4 space-y-3 flex-1">
         {prochaineDate ? (
-          <ScheduleRow
-            date={prochaineDate}
-            label={prochaineDebtor ?? "Relance programmée"}
-            kind="Email"
-          />
+          <ScheduleRow date={prochaineDate} label={prochaineDebtor ?? "Relance programmée"} kind="Email" />
         ) : (
           <li className="text-sm text-[var(--navy)]/50 italic">Aucune relance programmée pour le moment.</li>
         )}
@@ -454,9 +478,7 @@ function ScheduleRow({
   const dateLabel = d
     ? d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" })
     : "À valider";
-  const timeLabel = d
-    ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-    : "—";
+  const timeLabel = d ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—";
   return (
     <li className="flex items-center gap-3">
       <div className="shrink-0 w-20">
@@ -465,7 +487,11 @@ function ScheduleRow({
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-[var(--navy)] truncate">{label}</div>
-        <div className={`text-[11px] inline-flex items-center gap-1 ${accent ? "text-[var(--highlight)]" : "text-[var(--navy)]/50"}`}>
+        <div
+          className={`text-[11px] inline-flex items-center gap-1 ${
+            accent ? "text-[var(--highlight)]" : "text-[var(--navy)]/50"
+          }`}
+        >
           <Video className="h-3 w-3" /> {kind}
         </div>
       </div>
@@ -474,6 +500,10 @@ function ScheduleRow({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Row 2 cards                                                               */
+/* -------------------------------------------------------------------------- */
+
 function StatementCard({
   index,
   label,
@@ -481,42 +511,90 @@ function StatementCard({
   icon,
   tone,
   href,
+  compact,
 }: {
   index: number;
   label: string;
   value: number;
   icon: React.ReactNode;
-  tone?: "highlight";
+  tone?: "blue";
   href?: string;
+  compact?: boolean;
 }) {
   const display = useCountUp(value);
-  const content = (
+  const isBlue = tone === "blue";
+  const content = compact ? (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <div className="h-9 w-9 rounded-2xl grid place-items-center ring-1 ring-black/5 bg-white/70 text-[var(--navy)]">
-          {icon}
+      <div
+        className={`h-10 w-10 rounded-2xl grid place-items-center ring-1 shrink-0 ${
+          isBlue ? "ring-white/70 bg-white/70 text-[var(--water-3)]" : "ring-black/5 bg-white/70 text-[var(--navy)]"
+        }`}
+      >
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div
+          className={`text-[10px] uppercase tracking-[0.16em] font-semibold ${
+            isBlue ? "text-[var(--water-3)]/80" : "text-[var(--navy)]/60"
+          }`}
+        >
+          {label}
         </div>
         <div
-          className={`font-display text-3xl font-semibold tabular-nums tracking-apple-tight ${
-            tone === "highlight" ? "text-[var(--highlight)]" : "text-[var(--navy)]"
+          className={`font-display text-2xl font-semibold tabular-nums leading-tight ${
+            isBlue ? "text-[var(--water-3)]" : "text-[var(--navy)]"
           }`}
         >
           {Math.round(display)}
         </div>
       </div>
-      <h3 className="statement text-[34px] mt-auto">{label}</h3>
+      {href && (
+        <ArrowRight
+          className={`h-4 w-4 shrink-0 transition-transform duration-300 [transition-timing-function:var(--ease-apple)] group-hover:translate-x-0.5 ${
+            isBlue ? "text-[var(--water-3)]/60" : "text-[var(--navy)]/30"
+          }`}
+        />
+      )}
+    </>
+  ) : (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className={`h-9 w-9 rounded-2xl grid place-items-center ring-1 ${
+            isBlue ? "ring-white/70 bg-white/70 text-[var(--water-3)]" : "ring-black/5 bg-white/70 text-[var(--navy)]"
+          }`}
+        >
+          {icon}
+        </div>
+        <div
+          className={`font-display text-3xl font-semibold tabular-nums tracking-apple-tight ${
+            isBlue ? "text-[var(--water-3)]" : "text-[var(--navy)]"
+          }`}
+        >
+          {Math.round(display)}
+        </div>
+      </div>
+      <h3 className={`statement text-[34px] mt-auto ${isBlue ? "text-[var(--water-3)]" : ""}`}>{label}</h3>
     </>
   );
-  const base = "card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[200px]";
+
+  const base = compact
+    ? "card-apple stagger-in p-5 flex items-center gap-4 min-h-[92px]"
+    : "card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[160px]";
+  const cardStyle: React.CSSProperties = {
+    ...staggerStyle(index),
+    ...(isBlue ? { background: "var(--blue-1)", borderColor: "var(--blue-2)" } : {}),
+  };
+
   if (href) {
     return (
-      <Link to={href} className={`${base} group`} style={staggerStyle(index)}>
+      <Link to={href} className={`${base} group`} style={cardStyle}>
         {content}
       </Link>
     );
   }
   return (
-    <div className={base} style={staggerStyle(index)}>
+    <div className={base} style={cardStyle}>
       {content}
     </div>
   );
@@ -525,28 +603,58 @@ function StatementCard({
 function RepartitionRisqueCard({
   index,
   breakdown,
-  atRiskCount,
 }: {
   index: number;
   breakdown: DashboardData["risk_breakdown"];
-  atRiskCount: number;
 }) {
   const total = breakdown.fiable + breakdown.a_surveiller + breakdown.a_risque;
   const ratio = total > 0 ? (breakdown.a_surveiller + breakdown.a_risque * 1.5) / (total * 1.5) : 0;
-  const display = useCountUp(atRiskCount);
+  const categories = [
+    { key: "fiable", label: RISK_LABELS.fiable, value: breakdown.fiable, color: RISK_COLORS.fiable },
+    { key: "a_surveiller", label: RISK_LABELS.a_surveiller, value: breakdown.a_surveiller, color: RISK_COLORS.a_surveiller },
+    { key: "a_risque", label: RISK_LABELS.a_risque, value: breakdown.a_risque, color: RISK_COLORS.a_risque },
+  ];
   return (
-    <div className="card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[280px]" style={staggerStyle(index)}>
-      <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">Répartition par risque</span>
-      <div className="flex-1 grid place-items-center">
-        <ArcGauge ratio={ratio} />
+    <div
+      className="card-apple stagger-in col-span-12 md:col-span-3 p-6 flex flex-col min-h-[280px]"
+      style={staggerStyle(index)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-[0.18em] font-semibold text-[var(--navy)]/60">
+          Répartition par risque
+        </span>
+        <span className="font-display text-xs font-semibold tabular-nums text-[var(--navy)]/70">
+          {total} débiteurs
+        </span>
       </div>
-      <div className="text-center">
-        <div className="font-display text-xl font-semibold tabular-nums text-[var(--navy)]">À risque ({Math.round(display)})</div>
-        <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-          <ArrowUpRight className="h-3 w-3" /> 7.2%
+      <div className="flex flex-col flex-1 mt-3">
+        <div className="grid place-items-center mb-5">
+          <div className="w-44">
+            <ArcGauge ratio={ratio} />
+          </div>
         </div>
+        <ul className="space-y-3">
+          {categories.map((c) => (
+            <RiskRow key={c.key} label={c.label} value={c.value} color={c.color} />
+          ))}
+        </ul>
       </div>
     </div>
+  );
+}
+
+function RiskRow({ label, value, color }: { label: string; value: number; color: string }) {
+  const display = useCountUp(value);
+  return (
+    <li className="flex items-center justify-between gap-3">
+      <span className="flex items-center gap-2.5 text-sm text-[var(--navy)]/80">
+        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: color }} />
+        {label}
+      </span>
+      <span className="font-display text-lg font-semibold tabular-nums text-[var(--navy)]">
+        {Math.round(display)}
+      </span>
+    </li>
   );
 }
 
@@ -554,14 +662,8 @@ function ArcGauge({ ratio }: { ratio: number }) {
   const clamped = Math.max(0, Math.min(1, ratio));
   const segments = 7;
   const lit = Math.max(1, Math.round(clamped * segments));
-  const cx = 80;
-  const cy = 80;
-  const r = 60;
-  const startAngle = 180;
-  const endAngle = 360;
-  const totalAngle = endAngle - startAngle;
-  const segGap = 4;
-  const segAngle = (totalAngle - segGap * (segments - 1)) / segments;
+  const cx = 80, cy = 80, r = 60, startAngle = 180, endAngle = 360, segGap = 4;
+  const segAngle = (endAngle - startAngle - segGap * (segments - 1)) / segments;
 
   const polar = (angle: number, radius: number) => {
     const rad = (angle * Math.PI) / 180;
@@ -569,10 +671,7 @@ function ArcGauge({ ratio }: { ratio: number }) {
   };
 
   const arcPath = (a0: number, a1: number, inner: number, outer: number) => {
-    const p0 = polar(a0, outer);
-    const p1 = polar(a1, outer);
-    const p2 = polar(a1, inner);
-    const p3 = polar(a0, inner);
+    const p0 = polar(a0, outer), p1 = polar(a1, outer), p2 = polar(a1, inner), p3 = polar(a0, inner);
     const largeArc = a1 - a0 > 180 ? 1 : 0;
     return `M ${p0.x} ${p0.y} A ${outer} ${outer} 0 ${largeArc} 1 ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${inner} ${inner} 0 ${largeArc} 0 ${p3.x} ${p3.y} Z`;
   };
@@ -580,12 +679,15 @@ function ArcGauge({ ratio }: { ratio: number }) {
   const litColors = ["var(--arc-1)", "var(--arc-2)", "var(--arc-3)", "var(--arc-4)", "var(--arc-5)", "var(--arc-5)", "var(--arc-5)"];
 
   return (
-    <svg viewBox="0 0 160 100" className="w-full max-w-[200px]" style={{ filter: "drop-shadow(0 4px 12px rgba(30,74,126,0.15))" }}>
+    <svg
+      viewBox="0 0 160 100"
+      className="w-full max-w-[200px]"
+      style={{ filter: "drop-shadow(0 4px 12px rgba(30,74,126,0.15))" }}
+    >
       {Array.from({ length: segments }).map((_, i) => {
         const a0 = startAngle + i * (segAngle + segGap);
         const a1 = a0 + segAngle;
-        const isLit = i < lit;
-        const color = isLit ? litColors[Math.min(i, litColors.length - 1)] : "#E8EEF5";
+        const color = i < lit ? litColors[Math.min(i, litColors.length - 1)] : "#E8EEF5";
         return (
           <path
             key={i}
@@ -607,16 +709,24 @@ function ProceduresCollectivesCard({ index, count }: { index: number; count: num
   const display = useCountUp(count);
   return (
     <div
-      className={`card-apple stagger-in col-span-12 md:col-span-3 p-5 flex items-center gap-4 min-h-[100px] ${
-        isDanger ? "border-red-200/70 bg-red-50/40" : ""
-      }`}
-      style={staggerStyle(index)}
+      className={`card-apple stagger-in p-5 flex items-center gap-4 min-h-[92px] ${isDanger ? "border-red-200/70" : ""}`}
+      style={{
+        ...staggerStyle(index),
+        background: isDanger ? "rgba(254,242,242,0.5)" : "var(--blue-1)",
+        borderColor: isDanger ? undefined : "var(--blue-2)",
+      }}
     >
-      <div className={`h-10 w-10 rounded-2xl grid place-items-center ring-1 ${isDanger ? "bg-red-100 ring-red-200 text-red-700" : "bg-emerald-50 ring-emerald-100 text-emerald-700"}`}>
+      <div
+        className={`h-10 w-10 rounded-2xl grid place-items-center ring-1 ${
+          isDanger ? "bg-red-100 ring-red-200 text-red-700" : "bg-white/70 ring-white/70 text-[var(--water-3)]"
+        }`}
+      >
         {isDanger ? <ShieldAlert className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[var(--navy)]/60">Procédures collectives</div>
+        <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[var(--navy)]/60">
+          Procédures collectives
+        </div>
         <div className="font-display text-2xl font-semibold tabular-nums text-[var(--navy)] mt-0.5">
           {Math.round(display)}
         </div>
@@ -626,32 +736,9 @@ function ProceduresCollectivesCard({ index, count }: { index: number; count: num
   );
 }
 
-function ImportCard({ index }: { index: number }) {
-  return (
-    <Link
-      to="/invoices/import"
-      className="card-apple stagger-in col-span-12 md:col-span-9 group p-5 flex items-center justify-between gap-4 min-h-[100px]"
-      style={staggerStyle(index)}
-    >
-      <div className="flex items-center gap-4 min-w-0">
-        <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--highlight)]/15 to-[var(--highlight)]/5 text-[var(--highlight)] grid place-items-center ring-1 ring-[var(--highlight)]/10">
-          <Upload className="h-6 w-6" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="font-display text-base text-[var(--navy)] font-semibold tracking-apple">
-            Importer un export comptable (CSV)
-          </h2>
-          <p className="text-xs text-[var(--navy)]/60 mt-0.5 truncate">
-            L'IA détecte automatiquement les colonnes de votre logiciel.
-          </p>
-        </div>
-      </div>
-      <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--highlight)] shrink-0 transition-all duration-300 [transition-timing-function:var(--ease-apple)] group-hover:gap-2.5">
-        Importer <ArrowRight className="h-4 w-4" />
-      </div>
-    </Link>
-  );
-}
+/* -------------------------------------------------------------------------- */
+/*  Row 3 cards                                                               */
+/* -------------------------------------------------------------------------- */
 
 function ChartCard({
   index,
@@ -671,10 +758,7 @@ function ChartCard({
   compact?: boolean;
 }) {
   return (
-    <div
-      className={`card-apple stagger-in p-5 flex flex-col ${className ?? ""}`}
-      style={staggerStyle(index)}
-    >
+    <div className={`card-apple stagger-in p-5 flex flex-col ${className ?? ""}`} style={staggerStyle(index)}>
       <div className={`flex ${compact ? "flex-col items-start gap-0.5" : "items-baseline justify-between gap-3"}`}>
         <h2 className="font-display text-sm font-semibold text-[var(--navy)] tracking-apple">{title}</h2>
         {subtitle && (
@@ -701,9 +785,9 @@ function PrevisionnelStack({
 }) {
   return (
     <div className="col-span-12 md:col-span-2 grid grid-rows-3 gap-3">
-      <PrevisionnelMini index={index} label="Prévisionnel J+30" value={j30} delta="+0.2%" />
-      <PrevisionnelMini index={index + 1} label="Prévisionnel J+60" value={j60} delta="+0.5%" />
-      <PrevisionnelMini index={index + 2} label="Prévisionnel J+90" value={j90} delta="+0.5%" highlight />
+      <PrevisionnelMini index={index} label="Prévisionnel J+30" value={j30} delta="+0.2%" bg="var(--blue-1)" />
+      <PrevisionnelMini index={index + 1} label="Prévisionnel J+60" value={j60} delta="+0.5%" bg="var(--blue-2)" />
+      <PrevisionnelMini index={index + 2} label="Prévisionnel J+90" value={j90} delta="+0.5%" bg="var(--blue-4)" dark />
     </div>
   );
 }
@@ -713,31 +797,42 @@ function PrevisionnelMini({
   label,
   value,
   delta,
-  highlight,
+  bg,
+  dark,
 }: {
   index: number;
   label: string;
   value: number;
   delta: string;
-  highlight?: boolean;
+  bg: string;
+  dark?: boolean;
 }) {
   const display = useCountUp(value);
   return (
     <div
       className="card-apple stagger-in p-4 flex flex-col justify-between relative overflow-hidden"
-      style={staggerStyle(index)}
+      style={{
+        ...staggerStyle(index),
+        background: bg,
+        borderColor: dark ? "transparent" : "var(--blue-2)",
+      }}
     >
-      {highlight && (
-        <div className="absolute -top-6 -right-6 h-16 w-16 rounded-full bg-gradient-to-br from-[var(--water-1)] to-[var(--water-2)] opacity-40 blur-md" />
-      )}
-      <div className="text-[9px] uppercase tracking-[0.16em] font-semibold text-[var(--navy)]/60 leading-tight">
+      <div
+        className={`text-[9px] uppercase tracking-[0.16em] font-semibold leading-tight ${
+          dark ? "text-white/80" : "text-[var(--navy)]/60"
+        }`}
+      >
         {label}
       </div>
       <div className="flex items-end justify-between gap-2 mt-1">
-        <div className="font-display text-lg font-semibold tabular-nums text-[var(--navy)]">
+        <div className={`font-display text-lg font-semibold tabular-nums ${dark ? "text-white" : "text-[var(--navy)]"}`}>
           {formatEuroCompact(display)}
         </div>
-        <div className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+        <div
+          className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+            dark ? "text-white bg-white/20" : "text-emerald-700 bg-emerald-50"
+          }`}
+        >
           <ArrowUpRight className="h-2.5 w-2.5" /> {delta}
         </div>
       </div>
@@ -746,7 +841,7 @@ function PrevisionnelMini({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Charts (Recharts)                                                          */
+/*  Charts                                                                    */
 /* -------------------------------------------------------------------------- */
 
 const CHART_TOOLTIP = {
@@ -839,7 +934,13 @@ function RelancesBarChart({ points }: { points: DashboardData["relances_envoyees
           axisLine={false}
           tickLine={false}
         />
-        <YAxis tick={{ fontSize: 10, fill: "#64748B" }} allowDecimals={false} axisLine={false} tickLine={false} width={20} />
+        <YAxis
+          tick={{ fontSize: 10, fill: "#64748B" }}
+          allowDecimals={false}
+          axisLine={false}
+          tickLine={false}
+          width={20}
+        />
         <Tooltip
           formatter={(v: number) => [v, "relances"]}
           labelFormatter={(d) => new Date(d as string).toLocaleDateString("fr-FR")}

@@ -75,6 +75,8 @@
   --warning: oklch(0.74 0.15 70);
   --danger: oklch(0.6 0.21 25);
 
+  --offwhite: #F7F0DD;
+  --cream-light: #EEE1C2;
   --cream-1: #F6ECD4;
   --cream-2: #F1E4BD;
   --cream-3: #E9D9A6;
@@ -82,6 +84,10 @@
   --water-1: #BFE0F5;
   --water-2: #4FA8E0;
   --water-3: #1E73B8;
+  --blue-1: #EAF4FC;
+  --blue-2: #CCE3F7;
+  --blue-3: #8FC0E8;
+  --blue-4: #2E7FC2;
   --arc-1: #DCE9F7;
   --arc-2: #B9D4EE;
   --arc-3: #7FB1DD;
@@ -181,15 +187,16 @@
     .fade-in-up,
     .blob-bg::before,
     .water-wave,
-    .water-wave-2 { animation: none !important; }
+    .water-wave-2,
+    .sphere-float { animation: none !important; }
     .card-apple { transition: none !important; }
   }
 
   .dashboard-cream {
     background:
-      radial-gradient(120% 80% at 80% 0%, rgba(176, 211, 240, 0.55) 0%, transparent 55%),
-      radial-gradient(100% 70% at 0% 100%, rgba(232, 218, 172, 0.6) 0%, transparent 55%),
-      linear-gradient(135deg, var(--cream-1) 0%, var(--cream-2) 55%, var(--cream-3) 100%);
+      radial-gradient(85% 60% at 0% 0%, rgba(253,250,242,0.92) 0%, rgba(250,245,232,0.4) 30%, transparent 60%),
+      radial-gradient(125% 95% at 100% 100%, rgba(253,250,242,0.97) 0%, rgba(250,245,232,0.45) 32%, transparent 62%),
+      linear-gradient(150deg, var(--offwhite) 0%, var(--cream-light) 100%);
   }
 
   .statement {
@@ -205,5 +212,11 @@
   @keyframes waterWave {
     0%, 100% { transform: translateX(0) translateY(0); }
     50% { transform: translateX(-8px) translateY(-2px); }
+  }
+
+  .sphere-float { animation: sphereFloat 5.5s ease-in-out infinite; }
+  @keyframes sphereFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-7px) scale(1.015); }
   }
 }
