@@ -197,14 +197,14 @@ export function extractCustomerName(
   customer: any,
 ): string | null {
   if (!customer) return null;
-  return (
+  const direct =
     customer.name ??
     customer.company_name ??
     customer.legal_name ??
     customer.label ??
-    customer.display_name ??
-    // customer particulier : prénom + nom
-    [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim() ||
-    null
-  );
+    customer.display_name;
+  if (direct) return direct;
+  // customer particulier : prénom + nom
+  const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
+  return fullName || null;
 }
