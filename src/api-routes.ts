@@ -74,7 +74,17 @@ export async function handleApiRoute(request: Request): Promise<Response | null>
 
   // -- Health check ---------------------------------------------------------
   if (path === "/api/health" && request.method === "GET") {
-    return jsonResponse({ ok: true, ts: new Date().toISOString() });
+    // Le SHA git permet de vérifier quelle version tourne réellement en prod.
+    // Railway expose RAILWAY_GIT_COMMIT_SHA au build/runtime.
+    const sha =
+      process.env.RAILWAY_GIT_COMMIT_SHA ??
+      process.env.GIT_COMMIT_SHA ??
+      "unknown";
+    return jsonResponse({
+      ok: true,
+      ts: new Date().toISOString(),
+      commit: sha.slice(0, 12),
+    });
   }
 
   return jsonResponse({ error: "Not found" }, 404);
