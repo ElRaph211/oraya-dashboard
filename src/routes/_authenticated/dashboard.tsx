@@ -369,48 +369,77 @@ function WaterSphere({ percent }: { percent: number }) {
     <div className="relative h-32 w-32 sphere-float">
       <svg
         viewBox="0 0 120 120"
-        className="absolute inset-0 h-full w-full drop-shadow-[0_6px_16px_rgba(30,115,184,0.25)]"
+        className="absolute inset-0 h-full w-full"
+        style={{ filter: "drop-shadow(0 8px 20px rgba(30,115,184,0.30))" }}
       >
         <defs>
-          <radialGradient id="sphereGlass" cx="40%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#E8F4FD" />
-            <stop offset="60%" stopColor="#BFE0F5" />
-            <stop offset="100%" stopColor="#7CB6E0" />
+          <radialGradient id="sphereGlass" cx="38%" cy="32%" r="68%">
+            <stop offset="0%" stopColor="#EBF6FE" />
+            <stop offset="50%" stopColor="#C2DFFB" />
+            <stop offset="100%" stopColor="#6AAEDD" />
+          </radialGradient>
+          <radialGradient id="sphereInner" cx="60%" cy="65%" r="55%">
+            <stop offset="0%" stopColor="#3A8FCC" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#0F4F88" stopOpacity="0.35" />
           </radialGradient>
           <linearGradient id="waterFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5FB0E5" />
-            <stop offset="100%" stopColor="#1E73B8" />
+            <stop offset="0%" stopColor="#62B5E8" />
+            <stop offset="100%" stopColor="#1565C0" />
           </linearGradient>
           <clipPath id="sphereClip">
             <circle cx="60" cy="60" r="50" />
           </clipPath>
+          <filter id="sphereBlur">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+          </filter>
         </defs>
+
+        {/* Base sphere */}
         <circle cx="60" cy="60" r="50" fill="url(#sphereGlass)" />
+        <circle cx="60" cy="60" r="50" fill="url(#sphereInner)" />
+
+        {/* Water fill */}
         <g clipPath="url(#sphereClip)">
           <g
             style={{
               transform: `translateY(${fillY}%)`,
-              transition: "transform 1.2s cubic-bezier(0.16, 1, 0.3, 1)",
+              transition: "transform 1.4s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
             <path
               className="water-wave"
-              d="M -20 8 Q 10 -2 40 6 T 100 6 T 160 6 V 130 H -20 Z"
+              d="M -20 10 Q 10 -4 40 8 T 100 8 T 160 8 V 130 H -20 Z"
               fill="url(#waterFill)"
-              opacity="0.95"
+              opacity="0.92"
             />
             <path
               className="water-wave-2"
-              d="M -20 12 Q 15 4 45 12 T 105 12 T 165 12 V 130 H -20 Z"
-              fill="#1E73B8"
-              opacity="0.5"
+              d="M -20 16 Q 18 6 48 14 T 108 14 T 168 14 V 130 H -20 Z"
+              fill="#0D47A1"
+              opacity="0.45"
             />
           </g>
         </g>
-        <ellipse cx="48" cy="38" rx="14" ry="8" fill="white" opacity="0.45" />
+
+        {/* Rim edge light */}
+        <circle cx="60" cy="60" r="50" fill="none" stroke="white" strokeWidth="1.5" strokeOpacity="0.25" />
+
+        {/* Primary glint — animates across the surface */}
+        <ellipse cx="46" cy="36" rx="15" ry="7" fill="white" opacity="0.5">
+          <animate attributeName="cx" values="42;52;42" dur="3.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" />
+          <animate attributeName="opacity" values="0.40;0.65;0.40" dur="3.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" />
+          <animate attributeName="ry" values="7;9;7" dur="3.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" />
+        </ellipse>
+
+        {/* Secondary small glint */}
+        <ellipse cx="72" cy="44" rx="5" ry="3" fill="white" opacity="0.3">
+          <animate attributeName="opacity" values="0.20;0.45;0.20" dur="4.2s" repeatCount="indefinite" begin="1s" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" />
+          <animate attributeName="cx" values="72;68;72" dur="4.2s" repeatCount="indefinite" begin="1s" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" />
+        </ellipse>
       </svg>
+
       <div className="absolute inset-0 grid place-items-center">
-        <div className="font-display text-2xl font-semibold tabular-nums text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
+        <div className="font-display text-2xl font-semibold tabular-nums text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">
           {Math.round(clamped)}%
         </div>
       </div>
@@ -786,8 +815,8 @@ function PrevisionnelStack({
   return (
     <div className="col-span-12 md:col-span-2 grid grid-rows-3 gap-3">
       <PrevisionnelMini index={index} label="Prévisionnel J+30" value={j30} delta="+0.2%" bg="var(--blue-1)" />
-      <PrevisionnelMini index={index + 1} label="Prévisionnel J+60" value={j60} delta="+0.5%" bg="var(--blue-2)" />
-      <PrevisionnelMini index={index + 2} label="Prévisionnel J+90" value={j90} delta="+0.5%" bg="var(--blue-4)" dark />
+      <PrevisionnelMini index={index + 1} label="Prévisionnel J+60" value={j60} delta="+0.5%" bg="var(--blue-4)" dark />
+      <PrevisionnelMini index={index + 2} label="Prévisionnel J+90" value={j90} delta="+0.5%" bg="var(--navy)" dark />
     </div>
   );
 }
