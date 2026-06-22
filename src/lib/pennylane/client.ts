@@ -132,11 +132,20 @@ export class PennylaneClient {
 
   /**
    * Itère sur les factures clients. Filtre brouillons + avoirs (non gérés par Oraya).
-   * @param updatedSince ISO datetime — sync delta sur le champ updated_at
+   *
+   * @param updatedSince ISO datetime — INACTIF pour le moment.
+   *   L'API v2 + header 2026 refuse `filter[updated_at][gteq]=...` avec
+   *   "should be a string, but we received a hash" — le format documenté
+   *   ne marche plus. On fait un sync full à chaque appel ; l'upsert
+   *   idempotent côté DB rend ça inoffensif (juste plus lent au démarrage).
+   *
+   *   TODO : tester d'autres formats quand on aura accès à la doc à jour :
+   *     - `?filter=updated_at:gteq:2026-...` (filter en string)
+   *     - `?updated_after=2026-...` (param flat)
    */
   async *getInvoices(updatedSince?: string): AsyncGenerator<PennylaneInvoice> {
+    void updatedSince; // intentionally unused — see TODO above
     const params: Record<string, string> = {};
-    if (updatedSince) params["filter[updated_at][gteq]"] = updatedSince;
 
     for await (const invoice of this.paginate<PennylaneInvoice>(
       "/customer_invoices",
