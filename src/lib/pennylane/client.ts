@@ -176,7 +176,8 @@ export function deriveInvoiceStatus(
 }
 
 /** Normalise un nom d'entreprise (retire forme juridique + accents) pour le matching. */
-export function normalizeCompanyName(name: string): string {
+export function normalizeCompanyName(name: string | null | undefined): string {
+  if (!name) return "";
   return name
     .toLowerCase()
     .replace(/\b(sarl|sas|sa|sasu|eurl|sci|snc|eirl)\b/gi, "")
@@ -185,4 +186,25 @@ export function normalizeCompanyName(name: string): string {
     .replace(/[^a-z0-9\s]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Extrait le nom d'un customer Pennylane en testant plusieurs champs possibles.
+ * La structure exacte varie selon la version d'API / le type de client.
+ */
+export function extractCustomerName(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+): string | null {
+  if (!customer) return null;
+  return (
+    customer.name ??
+    customer.company_name ??
+    customer.legal_name ??
+    customer.label ??
+    customer.display_name ??
+    // customer particulier : prénom + nom
+    [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim() ||
+    null
+  );
 }

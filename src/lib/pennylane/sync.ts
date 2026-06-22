@@ -15,6 +15,7 @@ import {
   PennylaneClient,
   deriveInvoiceStatus,
   normalizeCompanyName,
+  extractCustomerName,
   type PennylaneInvoice,
 } from "./client";
 import { readPennylaneToken } from "./vault";
@@ -39,38 +40,59 @@ export type SyncResult = {
  */
 async function findOrCreateDebtor(
   clientId: string,
-  customer: PennylaneInvoice["customer"],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
 ): Promise<string> {
+  if (!customer) throw new Error("customer absent de la facture");
+
+  // Extraction robuste des champs (la structure varie selon l'API/le type client)
+  const customerName = extractCustomerName(customer);
+  const customerId = customer.id ?? customer.customer_id ?? null;
+  const siren = customer.siren ?? customer.reg_no ?? null;
+  const email =
+    customer.emails?.[0] ??
+    customer.email ??
+    customer.billing_email ??
+    null;
+  const phone = customer.phone_number ?? customer.phone ?? null;
+  const city =
+    customer.billing_address?.city ??
+    customer.address?.city ??
+    customer.city ??
+    null;
+
   // 1. Par pennylane_customer_id
-  const { data: byId } = await supabaseAdmin
-    .from("debtors")
-    .select("id")
-    .eq("client_id", clientId)
-    .eq("pennylane_customer_id", customer.id)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (byId) return byId.id;
+  if (customerId) {
+    const { data: byId } = await supabaseAdmin
+      .from("debtors")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("pennylane_customer_id", customerId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (byId) return byId.id;
+  }
 
   // 2. Par SIREN
-  if (customer.siren) {
+  if (siren) {
     const { data: bySiren } = await supabaseAdmin
       .from("debtors")
       .select("id")
       .eq("client_id", clientId)
-      .eq("siren", customer.siren)
+      .eq("siren", siren)
       .is("deleted_at", null)
       .maybeSingle();
     if (bySiren) {
       await supabaseAdmin
         .from("debtors")
-        .update({ pennylane_customer_id: customer.id })
+        .update({ pennylane_customer_id: customerId })
         .eq("id", bySiren.id);
       return bySiren.id;
     }
   }
 
   // 3. Par nom normalisé
-  const normalized = normalizeCompanyName(customer.name);
+  const normalized = normalizeCompanyName(customerName);
   if (normalized.length >= 3) {
     const { data: byName } = await supabaseAdmin
       .from("debtors")
@@ -82,23 +104,24 @@ async function findOrCreateDebtor(
     if (byName) {
       await supabaseAdmin
         .from("debtors")
-        .update({ pennylane_customer_id: customer.id })
+        .update({ pennylane_customer_id: customerId })
         .eq("id", byName.id);
       return byName.id;
     }
   }
 
-  // 4. Création
+  // 4. Création. Fallback nom si vraiment introuvable (pour ne pas bloquer le sync)
+  const finalName = customerName ?? (customerId ? `Client Pennylane ${customerId}` : "Client inconnu");
   const { data: created, error } = await supabaseAdmin
     .from("debtors")
     .insert({
       client_id: clientId,
-      company_name: customer.name,
-      siren: customer.siren ?? null,
-      contact_email: customer.emails?.[0] ?? null,
-      contact_phone: customer.phone_number ?? null,
-      city: customer.billing_address?.city ?? null,
-      pennylane_customer_id: customer.id,
+      company_name: finalName,
+      siren,
+      contact_email: email,
+      contact_phone: phone,
+      city,
+      pennylane_customer_id: customerId,
       status: "active",
       // Hors scope par défaut — Raphaël valide manuellement avant d'envoyer des relances
       is_in_oraya_scope: false,
@@ -155,7 +178,18 @@ export async function syncPennylane(
         ? new Date(client.last_pennylane_sync).toISOString()
         : undefined;
 
+    let loggedSample = false;
     for await (const invoice of pl.getInvoices(updatedSince)) {
+      // Log la structure brute de la 1ère facture pour vérifier le mapping réel.
+      if (!loggedSample) {
+        loggedSample = true;
+        console.log(
+          "[pennylane sync] sample invoice keys:",
+          Object.keys(invoice),
+          "| customer:",
+          JSON.stringify(invoice.customer),
+        );
+      }
       try {
         const debtorId = await findOrCreateDebtor(clientId, invoice.customer);
         const total = parseFloat(invoice.currency_amount);
