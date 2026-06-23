@@ -129,6 +129,18 @@ export const getDashboardData = createServerFn({ method: "GET" })
       .eq("status", "pending_approval");
     if (clientId) relancesPendingQuery.eq("client_id", clientId);
 
+    // Relances programmées : créées manuellement avec une date d'envoi future
+    // (status approved + generated_at > maintenant). C'est ce que l'utilisateur
+    // voit dans /relances onglet "Programmées".
+    const scheduledRelancesQuery = supabaseAdmin
+      .from("relances_queue")
+      .select("generated_at, debtors(company_name)")
+      .eq("status", "approved")
+      .gt("generated_at", new Date().toISOString())
+      .order("generated_at", { ascending: true })
+      .limit(1);
+    if (clientId) scheduledRelancesQuery.eq("client_id", clientId);
+
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     const relancesSentQuery = supabaseAdmin
@@ -144,10 +156,11 @@ export const getDashboardData = createServerFn({ method: "GET" })
       .eq("status", "pending");
     if (clientId) nextChecksQuery.eq("client_id", clientId);
 
-    const [debtorsRes, invoicesRes, relancesPendingRes, relancesSentRes, nextChecksRes, rates] = await Promise.all([
+    const [debtorsRes, invoicesRes, relancesPendingRes, scheduledRelancesRes, relancesSentRes, nextChecksRes, rates] = await Promise.all([
       debtorsQuery,
       invoicesQuery,
       relancesPendingQuery,
+      scheduledRelancesQuery,
       relancesSentQuery,
       nextChecksQuery,
       loadRecoveryRates(),
@@ -178,15 +191,27 @@ export const getDashboardData = createServerFn({ method: "GET" })
 
     const relancesAValider = relancesPendingRes.count ?? 0;
 
-    const nextRelanceDebtor = debtors
-      .filter((d) => d.next_relance_date && !d.relances_paused)
-      .sort(
-        (a, b) => new Date(a.next_relance_date as string).getTime() - new Date(b.next_relance_date as string).getTime(),
-      )[0];
-    const prochaineRelance = {
-      date: nextRelanceDebtor?.next_relance_date ?? null,
-      debtor_name: nextRelanceDebtor?.company_name ?? null,
-    };
+    // Priorité : relance programmée concrète dans relances_queue.
+    // Fallback : prochaine date planifiée au niveau débiteur (cron auto).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scheduled = (scheduledRelancesRes.data ?? [])[0] as any;
+    let prochaineRelance: { date: string | null; debtor_name: string | null };
+    if (scheduled?.generated_at) {
+      prochaineRelance = {
+        date: scheduled.generated_at,
+        debtor_name: scheduled.debtors?.company_name ?? null,
+      };
+    } else {
+      const nextRelanceDebtor = debtors
+        .filter((d) => d.next_relance_date && !d.relances_paused)
+        .sort(
+          (a, b) => new Date(a.next_relance_date as string).getTime() - new Date(b.next_relance_date as string).getTime(),
+        )[0];
+      prochaineRelance = {
+        date: nextRelanceDebtor?.next_relance_date ?? null,
+        debtor_name: nextRelanceDebtor?.company_name ?? null,
+      };
+    }
 
     /* ---- 4. Prévisionnel J+30 / J+60 / J+90 ---------------------------- */
     const j30Date = new Date(today);
