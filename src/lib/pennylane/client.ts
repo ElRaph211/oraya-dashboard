@@ -131,6 +131,23 @@ export class PennylaneClient {
   }
 
   /**
+   * Récupère un client complet par son id (GET /customers/{id}).
+   * Les factures ne contiennent qu'une référence {id, url} au client —
+   * il faut cet appel pour obtenir le nom, l'email, le SIREN, etc.
+   * Renvoie null si introuvable.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async getCustomer(id: number | string): Promise<any | null> {
+    const url = `${PENNYLANE_BASE_URL}/customers/${id}`;
+    const res = await fetchWithRetry(url, { headers: this.headers() });
+    if (!res.ok) {
+      console.error(`[pennylane] getCustomer ${id} → ${res.status}`);
+      return null;
+    }
+    return res.json();
+  }
+
+  /**
    * Itère sur les factures clients. Filtre brouillons + avoirs (non gérés par Oraya).
    *
    * @param updatedSince ISO datetime — INACTIF pour le moment.
@@ -143,18 +160,38 @@ export class PennylaneClient {
    *     - `?filter=updated_at:gteq:2026-...` (filter en string)
    *     - `?updated_after=2026-...` (param flat)
    */
-  async *getInvoices(updatedSince?: string): AsyncGenerator<PennylaneInvoice> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async *getInvoices(updatedSince?: string): AsyncGenerator<any> {
     void updatedSince; // intentionally unused — see TODO above
     const params: Record<string, string> = {};
 
-    for await (const invoice of this.paginate<PennylaneInvoice>(
-      "/customer_invoices",
-      params,
-    )) {
-      if (invoice.credit_note || invoice.draft) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for await (const invoice of this.paginate<any>("/customer_invoices", params)) {
+      // On ignore les brouillons. Le champ credit_note n'existe pas dans l'API v2
+      // (les avoirs ont leur propre type) — on ne filtre donc que sur draft.
+      if (invoice.draft) continue;
       yield invoice;
     }
   }
+}
+
+/** Montant TTC de la facture (gère les variantes de champ de l'API v2). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function invoiceTotal(invoice: any): number {
+  return parseFloat(invoice.currency_amount ?? invoice.amount ?? "0") || 0;
+}
+
+/** Montant restant dû TTC (gère les variantes de champ de l'API v2). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function invoiceRemaining(invoice: any): number {
+  return (
+    parseFloat(
+      invoice.remaining_amount_with_tax ??
+        invoice.remaining_amount ??
+        invoice.remaining_amount_without_tax ??
+        "0",
+    ) || 0
+  );
 }
 
 /**
@@ -164,12 +201,14 @@ export class PennylaneClient {
  *   overdue  : non payée et deadline dépassée
  *   pending  : sinon
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function deriveInvoiceStatus(
-  invoice: PennylaneInvoice,
+  invoice: any,
 ): "paid" | "partial" | "overdue" | "pending" {
-  if (invoice.is_paid) return "paid";
-  const total = parseFloat(invoice.currency_amount);
-  const remaining = parseFloat(invoice.remaining_amount);
+  const isPaid = invoice.paid ?? invoice.is_paid;
+  if (isPaid) return "paid";
+  const total = invoiceTotal(invoice);
+  const remaining = invoiceRemaining(invoice);
   if (total - remaining > 0 && remaining > 0) return "partial";
   if (invoice.deadline && new Date(invoice.deadline) < new Date()) return "overdue";
   return "pending";

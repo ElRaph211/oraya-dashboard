@@ -16,7 +16,8 @@ import {
   deriveInvoiceStatus,
   normalizeCompanyName,
   extractCustomerName,
-  type PennylaneInvoice,
+  invoiceTotal,
+  invoiceRemaining,
 } from "./client";
 import { readPennylaneToken } from "./vault";
 import { _refreshDebtorStatsCore } from "@/lib/scoring/refresh-debtor-stats";
@@ -65,12 +66,26 @@ async function findOrCreateDebtor(
   if (customerId) {
     const { data: byId } = await supabaseAdmin
       .from("debtors")
-      .select("id")
+      .select("id, company_name")
       .eq("client_id", clientId)
       .eq("pennylane_customer_id", customerId)
       .is("deleted_at", null)
       .maybeSingle();
-    if (byId) return byId.id;
+    if (byId) {
+      // Si on a maintenant un vrai nom et que l'existant est un placeholder
+      // (« Client Pennylane <id> »), on le met à jour.
+      if (
+        customerName &&
+        typeof byId.company_name === "string" &&
+        byId.company_name.startsWith("Client Pennylane")
+      ) {
+        await supabaseAdmin
+          .from("debtors")
+          .update({ company_name: customerName, contact_email: email, contact_phone: phone, city })
+          .eq("id", byId.id);
+      }
+      return byId.id;
+    }
   }
 
   // 2. Par SIREN
@@ -178,22 +193,41 @@ export async function syncPennylane(
         ? new Date(client.last_pennylane_sync).toISOString()
         : undefined;
 
-    let loggedSample = false;
+    // Cache des clients déjà récupérés via GET /customers/{id} — les factures
+    // ne contiennent qu'une référence {id, url}, pas l'objet client complet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const customerCache = new Map<string, any>();
+    let loggedCustomer = false;
+
     for await (const invoice of pl.getInvoices(updatedSince)) {
-      // Log la structure brute de la 1ère facture pour vérifier le mapping réel.
-      if (!loggedSample) {
-        loggedSample = true;
-        console.log(
-          "[pennylane sync] sample invoice keys:",
-          Object.keys(invoice),
-          "| customer:",
-          JSON.stringify(invoice.customer),
-        );
-      }
       try {
-        const debtorId = await findOrCreateDebtor(clientId, invoice.customer);
-        const total = parseFloat(invoice.currency_amount);
-        const remaining = parseFloat(invoice.remaining_amount);
+        // Résout le client complet (nom, email, SIREN…) via son id
+        const customerRef = invoice.customer;
+        const customerId = customerRef?.id ?? customerRef?.customer_id;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let fullCustomer: any = customerRef;
+        if (customerId) {
+          const key = String(customerId);
+          if (!customerCache.has(key)) {
+            const fetched = await pl.getCustomer(customerId);
+            customerCache.set(key, fetched ?? customerRef);
+          }
+          fullCustomer = customerCache.get(key);
+          // S'assure que l'id est présent (les détails n'incluent pas toujours url)
+          if (fullCustomer && !fullCustomer.id) fullCustomer.id = customerId;
+        }
+
+        if (!loggedCustomer) {
+          loggedCustomer = true;
+          console.log(
+            "[pennylane sync] sample full customer:",
+            JSON.stringify(fullCustomer)?.slice(0, 400),
+          );
+        }
+
+        const debtorId = await findOrCreateDebtor(clientId, fullCustomer);
+        const total = invoiceTotal(invoice);
+        const remaining = invoiceRemaining(invoice);
 
         const { error: upErr } = await supabaseAdmin.from("invoices").upsert(
           {
