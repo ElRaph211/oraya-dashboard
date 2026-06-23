@@ -1,11 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, Building2, Mail, Phone, MapPin, AlertTriangle, MessageCircle, Send, Inbox as InboxIcon, Calendar } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Building2, Mail, Phone, MapPin, AlertTriangle, MessageCircle, Send, Inbox as InboxIcon, Calendar, CheckCircle2, PauseCircle, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { useRelances } from "@/lib/relances-store";
 import { useInbox, CATEGORY_META } from "@/lib/inbox-store";
 import { formatEuro } from "@/lib/mock-data";
-import { getDebtorWithInvoices } from "@/lib/queries/debtors";
+import { getDebtorWithInvoices, activateDebtorRelances } from "@/lib/queries/debtors";
 
 export const Route = createFileRoute("/_authenticated/debtors/$debtorId")({
   head: () => ({ meta: [{ title: `Débiteur — Oraya` }] }),
@@ -30,13 +31,29 @@ function mapRisk(r: string | null): "faible" | "moyen" | "élevé" {
 
 function DebtorDetail() {
   const { debtorId } = Route.useParams();
+  const qc = useQueryClient();
   const fetchDebtor = useServerFn(getDebtorWithInvoices);
+  const activateFn = useServerFn(activateDebtorRelances);
   const { data: row, isLoading } = useQuery({
     queryKey: ["debtor", debtorId],
     queryFn: () => fetchDebtor({ data: { debtorId } }),
   });
   const relances = useRelances();
   const inbox = useInbox();
+
+  const activateMutation = useMutation({
+    mutationFn: (enabled: boolean) => activateFn({ data: { debtorId, enabled } }),
+    onSuccess: (res) => {
+      toast.success(
+        res.enabled
+          ? `Relances activées — première relance le ${res.next_relance_date ? new Date(res.next_relance_date).toLocaleDateString("fr-FR") : "bientôt"}`
+          : "Relances désactivées pour ce débiteur",
+      );
+      qc.invalidateQueries({ queryKey: ["debtor", debtorId] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
 
   if (isLoading) return <div className="p-10 text-center text-muted-foreground">Chargement…</div>;
   if (!row) throw notFound();
@@ -51,6 +68,8 @@ function DebtorDetail() {
     status: mapStatus(row.status),
     risk: mapRisk(row.risk_category),
     avg_delay: Number(row.avg_payment_delay ?? 0),
+    in_scope: row.is_in_oraya_scope === true,
+    next_relance_date: (row.next_relance_date as string | null) ?? null,
   };
 
   const debtorInvoices = ((row.invoices ?? []) as Array<{
@@ -140,13 +159,48 @@ function DebtorDetail() {
           </div>
           <div className="flex flex-col items-end gap-2">
             <RiskBadge risk={d.risk} />
-            <Link
-              to="/relances/plan/$debtorId"
-              params={{ debtorId: d.id }}
-              className="inline-flex items-center gap-1.5 text-xs bg-[var(--highlight)]/10 hover:bg-[var(--highlight)]/20 text-[var(--highlight)] px-3 py-1.5 rounded-md transition"
-            >
-              <Calendar className="h-3.5 w-3.5" /> Planifier des relances
-            </Link>
+            {d.in_scope ? (
+              <span className="inline-flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-md">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Relances actives
+                {d.next_relance_date && (
+                  <span className="opacity-70">
+                    · proch. {new Date(d.next_relance_date).toLocaleDateString("fr-FR")}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <button
+                onClick={() => {
+                  if (confirm(`Activer les relances pour ${d.company} ?\nIl entrera dans le périmètre Oraya et sera relancé automatiquement.`)) {
+                    activateMutation.mutate(true);
+                  }
+                }}
+                disabled={activateMutation.isPending}
+                className="inline-flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md transition disabled:opacity-50"
+              >
+                {activateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Activer les relances
+              </button>
+            )}
+            <div className="flex gap-2">
+              {d.in_scope && (
+                <button
+                  onClick={() => activateMutation.mutate(false)}
+                  disabled={activateMutation.isPending}
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-700 px-2 py-1.5 rounded-md transition disabled:opacity-50"
+                >
+                  <PauseCircle className="h-3.5 w-3.5" /> Désactiver
+                </button>
+              )}
+              <Link
+                to="/relances/plan/$debtorId"
+                params={{ debtorId: d.id }}
+                className="inline-flex items-center gap-1.5 text-xs bg-[var(--highlight)]/10 hover:bg-[var(--highlight)]/20 text-[var(--highlight)] px-3 py-1.5 rounded-md transition"
+              >
+                <Calendar className="h-3.5 w-3.5" /> Planifier
+              </Link>
+            </div>
           </div>
         </div>
       </header>
