@@ -230,32 +230,6 @@ function DashboardPage() {
           </ChartCard>
         </section>
 
-        {/* Import CSV (non-admin) */}
-        {!isAdmin && (
-          <section className="stagger-in" style={staggerStyle(11)}>
-            <Link
-              to="/invoices/import"
-              className="card-apple group flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 hover:border-[var(--highlight)]"
-            >
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--highlight)]/15 to-[var(--highlight)]/5 text-[var(--highlight)] grid place-items-center ring-1 ring-[var(--highlight)]/10">
-                  <Upload className="h-6 w-6" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="font-display text-base text-[var(--navy)] font-semibold tracking-apple">
-                    Importer un export comptable (CSV)
-                  </h2>
-                  <p className="text-xs text-[var(--navy)]/60 mt-0.5 truncate">
-                    L'IA détecte automatiquement les colonnes de votre logiciel.
-                  </p>
-                </div>
-              </div>
-              <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--highlight)] shrink-0 transition-all duration-300 [transition-timing-function:var(--ease-apple)] group-hover:gap-2.5">
-                Importer <ArrowRight className="h-4 w-4" />
-              </div>
-            </Link>
-          </section>
-        )}
       </div>
     </div>
   );
